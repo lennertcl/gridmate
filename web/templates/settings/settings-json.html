@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+
+{% block title %}Settings JSON Editor - GridMate{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Edit settings.json directly</h2>
+</div>
+
+<div class="settings-container">
+    <section class="card card-full-width">
+        <form id="data-json-form" method="POST">
+            {{ form.hidden_tag() }}
+            <div class="data-json-actions">
+                {{ form.submit(class="btn btn-primary") }}
+                <button type="button" id="download-btn" class="btn btn-secondary" onclick="GridMateEMS.downloadJsonData()">
+                    <i class="fas fa-download"></i> Download
+                </button>
+            </div>
+            <div class="form-group">
+                {{ form.json_content(class="json-textarea") }}
+                {% if form.json_content.errors %}
+                    <div class="alert alert-error">
+                        {% for error in form.json_content.errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}

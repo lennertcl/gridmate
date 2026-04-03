@@ -1,0 +1,139 @@
+{% extends "layout.html" %}
+
+{% block title %}Solar Dashboard - GridMate{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/solar.css') }}">
+
+{% if not is_configured %}
+<div class="page-header">
+    <h2>Solar Dashboard</h2>
+    <p>Solar panel sensors are not configured yet</p>
+</div>
+<div class="dashboard-grid">
+    <section class="card card-full-width solar-not-configured">
+        <div class="empty-state">
+            <i class="fas fa-solar-panel empty-state-icon"></i>
+            <h3>No Solar Sensors Configured</h3>
+            <p>Configure your solar panel sensors to see live production data, forecasts and insights.</p>
+            <a href="{{ url_for('settings_device.solar_panels') }}" class="btn btn-primary">Configure Solar Panels</a>
+        </div>
+    </section>
+</div>
+{% else %}
+
+<div class="page-header">
+    <h2>Solar Dashboard</h2>
+</div>
+
+<div class="dashboard-grid solar-grid">
+
+    <section class="card card-full-width">
+        <div class="solar-hero">
+            <div class="solar-hero-production">
+                <span class="solar-hero-label">Current Production</span>
+                <span class="solar-hero-value" id="solar-current-power">-- kW</span>
+            </div>
+            <div class="solar-hero-stats">
+                <div class="solar-stat">
+                    <i class="fas fa-bolt"></i>
+                    <div class="solar-stat-content">
+                        <span class="solar-stat-value" id="solar-produced-hour">--</span>
+                        <span class="solar-stat-label">Produced This Hour</span>
+                    </div>
+                </div>
+                <div class="solar-stat">
+                    <i class="fas fa-sun"></i>
+                    <div class="solar-stat-content">
+                        <span class="solar-stat-value" id="solar-today">--</span>
+                        <span class="solar-stat-label">Produced Today</span>
+                    </div>
+                </div>
+                <div class="solar-stat">
+                    <i class="fas fa-clock"></i>
+                    <div class="solar-stat-content">
+                        <span class="solar-stat-value" id="solar-est-hour">--</span>
+                        <span class="solar-stat-label">Estimated This Hour</span>
+                    </div>
+                </div>
+                <div class="solar-stat">
+                    <i class="fas fa-chart-line"></i>
+                    <div class="solar-stat-content">
+                        <span class="solar-stat-value" id="solar-estimated-today">--</span>
+                        <span class="solar-stat-label">Estimated Today</span>
+                    </div>
+                </div>
+                <div class="solar-stat">
+                    <i class="fas fa-forward"></i>
+                    <div class="solar-stat-content">
+                        <span class="solar-stat-value" id="solar-est-next-hour">--</span>
+                        <span class="solar-stat-label">Estimated Next Hour</span>
+                    </div>
+                </div>
+                <div class="solar-stat">
+                    <i class="fas fa-calendar-day"></i>
+                    <div class="solar-stat-content">
+                        <span class="solar-stat-value" id="solar-est-tomorrow-energy">--</span>
+                        <span class="solar-stat-label">Estimated Tomorrow</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card card-full-width">
+        <div class="solar-chart-header">
+            <h3>Production vs Forecast</h3>
+            <div class="range-selector">
+                <button class="btn btn-sm btn-icon" id="solar-range-back" title="Back 6 hours">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <div class="range-inputs">
+                    <div class="range-field">
+                        <label class="range-label" for="solar-range-start">From</label>
+                        <input type="datetime-local" id="solar-range-start" class="range-input">
+                    </div>
+                    <div class="range-field">
+                        <label class="range-label" for="solar-range-end">To</label>
+                        <input type="datetime-local" id="solar-range-end" class="range-input">
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-icon" id="solar-range-forward" title="Forward 6 hours">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+        <div class="chart-container" style="height: 350px;">
+            <canvas id="solar-production-chart"></canvas>
+        </div>
+    </section>
+
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if is_configured %}
+<script>
+    window.SOLAR_CONFIG = {
+        sensors: {
+            actual_production: "{{ solar_sensors.actual_production }}",
+            energy_production_today: "{{ solar_sensors.energy_production_today }}",
+            energy_production_lifetime: "{{ solar_sensors.energy_production_lifetime }}",
+            estimated_actual_production: "{{ solar_sensors.estimated_actual_production }}",
+            estimated_energy_production_remaining_today: "{{ solar_sensors.estimated_energy_production_remaining_today }}",
+            estimated_energy_production_today: "{{ solar_sensors.estimated_energy_production_today }}",
+            estimated_energy_production_hour: "{{ solar_sensors.estimated_energy_production_hour }}",
+            estimated_actual_production_offset_day: "{{ solar_sensors.estimated_actual_production_offset_day }}",
+            estimated_energy_production_offset_day: "{{ solar_sensors.estimated_energy_production_offset_day }}",
+            estimated_energy_production_offset_hour: "{{ solar_sensors.estimated_energy_production_offset_hour }}",
+            actual_consumption: "{{ solar_sensors.actual_consumption }}",
+            actual_injection: "{{ solar_sensors.actual_injection }}"
+        }
+    };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/solar-charts.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/solar-dashboard.js') }}"></script>
+{% endif %}
+{% endblock %}

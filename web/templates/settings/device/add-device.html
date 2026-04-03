@@ -1,0 +1,59 @@
+{% extends "layout.html" %}
+
+{% block title %}Add Device - GridMate{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Add Device</h2>
+    <p>Configure a new device for your energy management system</p>
+</div>
+
+<div class="settings-container">
+    <section class="card card-full-width">
+        <h3><i class="fas fa-plus-circle"></i> Device Configuration</h3>
+        <form method="POST" novalidate>
+            {{ form.hidden_tag() }}
+
+            <div class="form-row">
+                <div class="form-col">
+                    <label for="{{ form.device_name.id }}">{{ form.device_name.label }}</label>
+                    {{ form.device_name(class="form-control", placeholder="e.g., Volkswagen ID.4") }}
+                    {% if form.device_name.errors %}
+                        <small class="error">{{ form.device_name.errors[0] }}</small>
+                    {% endif %}
+                </div>
+                <div class="form-col">
+                    <label for="{{ form.primary_type.id }}">{{ form.primary_type.label }}</label>
+                    {{ form.primary_type(class="form-control", id="primary-type-select") }}
+                    {% if form.primary_type.errors %}
+                        <small class="error">{{ form.primary_type.errors[0] }}</small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <h4>Secondary Types</h4>
+            <p class="form-section-desc">Select additional capabilities for this device</p>
+            <div class="type-selection" id="secondary-types-container">
+                {% for tid, dt in type_registry.items() %}
+                <label class="checkbox-label secondary-type-option" data-type-id="{{ tid }}">
+                    <input type="checkbox" name="secondary_types" value="{{ tid }}">
+                    <i class="{{ dt.icon }}"></i> {{ dt.name }}
+                </label>
+                {% endfor %}
+            </div>
+
+            <div id="custom-parameters-container">
+            </div>
+
+            <div class="form-actions">
+                {{ form.submit(class="btn btn-primary") }}
+                <a href="{{ url_for('settings_device.devices') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/device-form.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,167 @@
+{% extends "layout.html" %}
+
+{% block title %}Devices Guide - GridMate{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings/optimization.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/guides.css') }}">
+
+<div class="page-header">
+    <h2>Devices Guide</h2>
+    <p>How to register and configure your smart devices &mdash; <a href="{{ url_for('settings_device.devices') }}" class="explanation-link">Go to configuration</a></p>
+</div>
+
+<div class="settings-container">
+    <section class="card card-full-width explanation-card">
+        <h3>Field Explanations</h3>
+
+        <div class="explanation-section">
+            <h4><i class="fas fa-info-circle"></i> How Devices Work</h4>
+            <div class="explanation-content">
+                <p>Each device has exactly one <strong>primary type</strong> that determines its main function (e.g. washing machine). In addition, a device may have any number of <strong>secondary types</strong> that add extra capabilities. There is no restriction on which types can be used as primary or secondary &mdash; any device type can serve in either role. </p>
+                <dl>
+                    <dt>Device Name</dt>
+                    <dd>A friendly name shown throughout the UI (e.g., &ldquo;Heat pump&rdquo;, &ldquo;Volkswagen ID.4&rdquo;).</dd>
+                    <dt>Primary Type</dt>
+                    <dd>The main category of the device. Any device type can be chosen as primary.</dd>
+                    <dt>Secondary Types</dt>
+                    <dd>Additional capabilities added to the device. Any device type can be added as a secondary type. Examples:
+                        <ul>
+                            <li>Washing Machine + <strong>Energy Reporting Device</strong> + <strong>Deferrable Load</strong> &rarr; tracked power usage, optimized scheduling</li>
+                            <li>Electric Vehicle + <strong>Battery Device</strong> + <strong>Energy Reporting Device</strong> &rarr; battery level tracking and consumption monitoring</li>
+                            <li>Home Battery + <strong>Battery Device</strong> + <strong>Energy Reporting Device</strong> &rarr; battery level tracking, charge/discharge monitoring</li>
+                            <li>Electric Vehicle + <strong>Home Battery</strong> &rarr; EV treated as a home battery for vehicle-to-grid scenarios</li>
+                        </ul>
+                    </dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="explanation-section">
+            <h4><i class="fas fa-layer-group"></i> Device Types</h4>
+            <div class="explanation-content">
+                <p>Each device type defines a set of parameters that become available when the type is assigned to a device, either as primary or secondary.</p>
+
+                <h5><i class="fas fa-shirt"></i> Washing Machine / <i class="fas fa-wind"></i> Dryer / <i class="fas fa-hands-bubbles"></i> Dishwasher</h5>
+                <p>Household appliances with no type-specific parameters yet. Add <strong>Energy Reporting Device</strong> to track consumption and <strong>Deferrable Load</strong> to enable optimized scheduling. Optionally add <strong>Duration Reporting Device</strong> to show remaining cycle time and <strong>Automatable Device</strong> for remote control.</p>
+
+                <h5><i class="fas fa-car"></i> Electric Vehicle</h5>
+                <dl>
+                    <dt>Range Sensor</dt>
+                    <dd>HA entity reporting estimated driving range (km, optional)</dd>
+                    <dt>Charging State Sensor</dt>
+                    <dd>HA entity reporting if the vehicle is currently charging (optional)</dd>
+                </dl>
+                <p>Can be combined with <strong>Battery Device</strong> for SOC tracking and <strong>Energy Reporting Device</strong> for consumption monitoring.</p>
+
+                <h5><i class="fas fa-charging-station"></i> Charging Station</h5>
+                <dl>
+                    <dt>Max Charge Rate (kW)</dt>
+                    <dd>Maximum charging rate (kW, optional)</dd>
+                    <dt>Session Energy Sensor</dt>
+                    <dd>HA entity reporting energy used in current session (kWh, optional)</dd>
+                </dl>
+                <p>Can be combined with <strong>Energy Reporting Device</strong> and <strong>Deferrable Load</strong> for smart charging.</p>
+
+                <h5><i class="fas fa-faucet-drip"></i> Water Heater</h5>
+                <dl>
+                    <dt>Temperature Sensor</dt>
+                    <dd>HA entity reporting current water temperature (&deg;C, optional)</dd>
+                </dl>
+                <p>A good candidate for <strong>Deferrable Load</strong> to heat water during cheap energy hours.</p>
+
+                <h5><i class="fas fa-fire"></i> Electric Heating</h5>
+                <dl>
+                    <dt>Temperature Sensor</dt>
+                    <dd>HA entity reporting current temperature (&deg;C, optional)</dd>
+                    <dt>Thermostat Entity</dt>
+                    <dd>HA climate entity for thermostat control (optional)</dd>
+                </dl>
+
+                <h5><i class="fas fa-temperature-arrow-up"></i> Heat Pump</h5>
+                <dl>
+                    <dt>Temperature Sensor</dt>
+                    <dd>HA entity reporting current temperature (&deg;C, optional)</dd>
+                    <dt>COP Sensor</dt>
+                    <dd>HA entity reporting coefficient of performance (optional)</dd>
+                </dl>
+
+                <h5><i class="fas fa-car-battery"></i> Home Battery</h5>
+                <p>A stationary home battery system for energy storage. All battery-specific settings are configured as parameters on the device.</p>
+                <dl>
+                    <dt>Optimization Enabled</dt>
+                    <dd>Whether this battery participates in EMHASS optimization (default: off)</dd>
+                    <dt>Max Charge Power (kW)</dt>
+                    <dd>Maximum power the battery can absorb when charging</dd>
+                    <dt>Max Discharge Power (kW)</dt>
+                    <dd>Maximum power the battery can deliver when discharging</dd>
+                    <dt>Mode Select Entity</dt>
+                    <dd>HA select/input_select entity to switch the battery operating mode (optional)</dd>
+                    <dt>Charge Efficiency</dt>
+                    <dd>Charging efficiency factor between 0 and 1 (default: 0.95)</dd>
+                    <dt>Discharge Efficiency</dt>
+                    <dd>Discharging efficiency factor between 0 and 1 (default: 0.95)</dd>
+                    <dt>Min Charge Level (%)</dt>
+                    <dd>Minimum battery state of charge to maintain (default: 20%)</dd>
+                    <dt>Max Charge Level (%)</dt>
+                    <dd>Maximum battery state of charge allowed (default: 80%)</dd>
+                    <dt>Target SOC (%)</dt>
+                    <dd>Target state of charge for optimization (default: 80%)</dd>
+                </dl>
+                <p>Typically combined with <strong>Battery Device</strong> for SOC tracking and <strong>Energy Reporting Device</strong> for charge/discharge monitoring.</p>
+
+                <h5><i class="fas fa-battery-three-quarters"></i> Battery Device</h5>
+                <dl>
+                    <dt>Battery Level Sensor</dt>
+                    <dd>HA entity reporting battery state of charge as a percentage (required)</dd>
+                    <dt>Max Capacity (kWh)</dt>
+                    <dd>Total usable capacity of the battery (required)</dd>
+                    <dt>Power Sensor</dt>
+                    <dd>HA entity for charge/discharge power &mdash; positive = charging, negative = discharging (optional)</dd>
+                </dl>
+
+                <h5><i class="fas fa-plug"></i> Energy Reporting Device</h5>
+                <dl>
+                    <dt>Power Sensor</dt>
+                    <dd>HA entity reporting current power consumption (kW, required)</dd>
+                    <dt>Energy Sensor</dt>
+                    <dd>HA entity reporting cumulative energy consumption (kWh, optional)</dd>
+                </dl>
+
+                <h5><i class="fas fa-robot"></i> Automatable Device</h5>
+                <dl>
+                    <dt>Control Entity</dt>
+                    <dd>HA entity (switch/input_boolean) used to start/stop the device (required)</dd>
+                    <dt>Status Sensor</dt>
+                    <dd>HA entity reporting current device status (optional)</dd>
+                </dl>
+
+                <h5><i class="fas fa-hourglass-half"></i> Duration Reporting Device</h5>
+                <dl>
+                    <dt>Remaining Time Sensor</dt>
+                    <dd>HA entity reporting remaining operation time in minutes (required)</dd>
+                </dl>
+
+                <h5><i class="fas fa-clock"></i> Deferrable Load</h5>
+                <p>Makes the device available for EMHASS optimization scheduling. 
+                <dl>
+                    <dt>Nominal Power (W)</dt>
+                    <dd>Power consumption when the device is running. E.g., 2000W for a water heater.</dd>
+                    <dt>Operating Duration (hours)</dt>
+                    <dd>How long the device needs to run per cycle. The optimizer finds the cheapest window of this duration.</dd>
+                    <dt>Constant Power</dt>
+                    <dd>When enabled, the device always runs at its full nominal power when active (on or off only). When disabled, the optimizer can vary the power between 0 and the nominal power to better match available solar or cheaper time slots. Most household appliances (washing machines, water heaters) should have this enabled.</dd>
+                    <dt>Continuous Operation</dt>
+                    <dd>When enabled, the device runs in one uninterrupted block. When disabled, the optimizer may split operation across multiple cheaper time slots.</dd>
+                    <dt>Earliest Start / Latest End</dt>
+                    <dd>The allowed operating window. E.g., 08:00&ndash;22:00 prevents overnight operation.</dd>
+                    <dt>Startup Penalty (&euro;)</dt>
+                    <dd>Cost penalty per start-up to discourage frequent cycling. </dd>
+                    <dt>Priority (1&ndash;10)</dt>
+                    <dd>Lower numbers are scheduled first when devices compete for the same cheap slots. Default: 5.</dd>
+                </dl>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

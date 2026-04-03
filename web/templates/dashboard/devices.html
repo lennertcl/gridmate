@@ -1,0 +1,72 @@
+{% extends "layout.html" %}
+
+{% block title %}Devices - GridMate{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="fas fa-microchip"></i> {% if filter_type_name %}{{ filter_type_name }}s{% else %}Devices{% endif %}</h2>
+    <p>{% if filter_type_name %}Showing {{ filter_type_name }} devices only — <a href="{{ url_for('dashboard.devices') }}">show all</a>{% else %}Overview of all connected devices{% endif %}</p>
+    <div class="page-header-actions">
+        <a href="{{ url_for('settings_device.add_device') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Add Device</a>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    {% if devices %}
+        {% for device in devices %}
+        {% set pt = type_registry.get(device.primary_type) %}
+        <a href="{{ url_for('dashboard.device_detail', device_id=device.device_id) }}" class="device-dashboard-card card">
+            <div class="device-dashboard-header">
+                <i class="{{ pt.icon if pt else 'fas fa-plug' }} device-dashboard-icon"></i>
+                <div class="device-dashboard-info">
+                    <strong class="device-dashboard-name">{{ device.name }}</strong>
+                    <span class="device-dashboard-type">{{ pt.name if pt else device.primary_type }}</span>
+                    {% if device.secondary_types %}
+                    <span class="device-dashboard-secondary">+{{ device.secondary_types|length }} more type{{ 's' if device.secondary_types|length > 1 }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="device-dashboard-params">
+                {% if device.custom_parameters %}
+                    {% set all_p = device.get_all_parameters(type_registry) %}
+                    {% for key, value in device.custom_parameters.items() %}
+                    {% if loop.index <= 3 %}
+                    {% set param_def = all_p.get(key) %}
+                    <div class="device-param-row">
+                        <span class="device-param-label">{{ param_def.label if param_def else key }}</span>
+                        {% if param_def and param_def.param_type == 'entity' and value %}
+                        <span class="entity-state entity-state-compact entity-state-loading" data-entity-id="{{ value }}">
+                            <span class="entity-state-indicator"></span>
+                            <span class="entity-state-value">···</span>
+                        </span>
+                        {% else %}
+                        <span class="device-param-value">{{ value }}{% if param_def and param_def.unit %} {{ param_def.unit }}{% endif %}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    {% if device.custom_parameters|length > 3 %}
+                    <div class="device-param-row">
+                        <span class="device-param-more">+{{ device.custom_parameters|length - 3 }} more</span>
+                    </div>
+                    {% endif %}
+                {% else %}
+                    <div class="device-param-row">
+                        <span class="device-param-label empty-param">No parameters configured</span>
+                    </div>
+                {% endif %}
+            </div>
+        </a>
+        {% endfor %}
+    {% else %}
+        <div class="card card-full-width">
+            <p class="empty-state">No devices configured. <a href="{{ url_for('settings_device.devices') }}">Add devices</a> in settings.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/devices.css') }}">
+<script type="module" src="{{ url_for('static', filename='js/device-entities.js') }}"></script>
+{% endblock %}

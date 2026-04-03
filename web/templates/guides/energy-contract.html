@@ -1,0 +1,178 @@
+{% extends "layout.html" %}
+
+{% block title %}Energy Contract Guide - GridMate{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings/optimization.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/guides.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/energy-contract.css') }}">
+
+<div class="page-header">
+    <h2>Energy Contract Guide</h2>
+    <p>How to model your energy pricing for accurate cost calculations &mdash; <a href="{{ url_for('settings_energy.energy_contract') }}" class="explanation-link">Go to configuration</a></p>
+</div>
+
+<div class="settings-container">
+    <section class="card card-full-width explanation-card">
+        <h3>Field Explanations</h3>
+
+        <div class="explanation-section">
+            <h4><i class="fas fa-info-circle"></i> How It Works</h4>
+            <div class="explanation-content">
+                <p>Your energy contract is modeled as a list of <strong>components</strong>. Each component represents one line item on your energy bill. </p>
+            </div>
+        </div>
+
+        <div class="explanation-section">
+            <h4><i class="fas fa-puzzle-piece"></i> Component Types</h4>
+            <div class="explanation-content">
+                <dl>
+                    <dt>Constant</dt>
+                    <dd>A fixed fee charged per period regardless of usage. Examples: monthly network fee, yearly grid access fee.
+                        <ul>
+                            <li><strong>Price:</strong> Amount in &euro; per period</li>
+                            <li><strong>Period:</strong> Monthly or yearly</li>
+                        </ul>
+                    </dd>
+                    <dt>Fixed</dt>
+                    <dd>A per-kWh charge at a fixed price. Used for fixed-rate consumption or injection rewards.
+                        <ul>
+                            <li><strong>Price:</strong> &euro;/kWh</li>
+                            <li><strong>Energy Sensor:</strong> Which consumption/injection counter to use (from your <a href="{{ url_for('guides.energy_feed') }}">energy feed</a> sensors or a predefined option)</li>
+                            <li><strong>Is Injection Reward:</strong> This component <em>reduces</em> your bill (e.g., solar feed-in tariff)</li>
+                        </ul>
+                    </dd>
+                    <dt>Variable</dt>
+                    <dd>A per-kWh charge where the price comes from a dynamic HA sensor 
+                        <ul>
+                            <li><strong>Price Sensor:</strong> HA entity providing the current price (e.g., <code>sensor.nordpool_kwh_be_eur</code>)</li>
+                            <li><strong>Price Formula:</strong> <code>multiplier &times; sensor_price[t] &times; usage[t] + constant</code> &mdash; with varying energy prices over time. </li>
+                            <li><strong>Energy Sensor:</strong> Which consumption/injection counter to use (from your <a href="{{ url_for('guides.energy_feed') }}">energy feed</a> sensors or a predefined option)</li>
+                            <li><strong>Is Injection Reward:</strong> This component <em>reduces</em> your bill (e.g., solar feed-in tariff)</li>
+                        </ul>
+                    </dd>
+                    <dt>Capacity</dt>
+                    <dd>A charge based on your peak power usage (capacity tariff). Typical in Belgian energy contracts. Billed per kW of your highest 15-minute average demand per period.
+                        <ul>
+                            <li><strong>Capacity Price:</strong> &euro;/kW per period</li>
+                        </ul>
+                    </dd>
+                    <dt>Percentage</dt>
+                    <dd>A percentage surcharge applied on top of other components. Commonly used for VAT or levies.
+                        <ul>
+                            <li><strong>Percentage:</strong> The rate (e.g., 6% or 21%)</li>
+                            <li><strong>Applies To:</strong> Select which other components this percentage is calculated on. E.g. typically injection rewards are not included in VAT calculation. </li>
+                        </ul>
+                    </dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="explanation-section">
+            <h4><i class="fas fa-sliders-h"></i> Multiplier</h4>
+            <div class="explanation-content">
+                <p>Every component has a <strong>multiplier</strong> (default: 1.0) that scales its contribution to the total cost. Use this to blend pricing mechanisms, e.g., set two components to 0.5 each for a 50/50 fixed/variable split.</p>
+            </div>
+        </div>
+
+        <div class="explanation-section">
+            <h4><i class="fas fa-lightbulb"></i> Examples</h4>
+            <div class="explanation-content">
+                <div class="examples-section">
+                    <div class="example-grid">
+                        <!-- Simple Fixed-Rate Example -->
+                        <div class="example-card">
+                            <h4>Simple Fixed-Rate Contract</h4>
+                            <p>A basic contract suitable for most household users with predictable consumption.</p>
+                            
+                            <div class="example-component">
+                                <div class="example-component-name">Network Fee</div>
+                                <div class="example-component-detail">Constant &euro;12.00 / month</div>
+                            </div>
+                            
+                            <div class="example-component">
+                                <div class="example-component-name">Energy Consumption</div>
+                                <div class="example-component-detail">Fixed &euro;0.225/kWh</div>
+                            </div>
+                            
+                            <div class="example-component">
+                                <div class="example-component-name">Solar Injection Reward</div>
+                                <div class="example-component-detail">Fixed &euro;0.15/kWh injection reward (deducted from bill)</div>
+                            </div>
+
+                            <div class="example-component">
+                                <div class="example-component-name">Total monthly bill:</div>
+                                <ul style="list-style-type:none;">
+                                    <li>+ 12.00</li>
+                                    <li> + 0.225 &times; consumption</li>
+                                    <li> - 0.15 &times; injection</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <!-- Complex Multi-Tariff Example -->
+                        <div class="example-card">
+                            <h4>Combined Fixed + Variable Pricing</h4>
+                            <p>Advanced contract combining fixed rates, dynamic pricing, and capacity charges.</p>
+                            
+                            <div class="example-component">
+                                <div class="example-component-name">50% Fixed Consumption</div>
+                                <div class="example-component-detail">Fixed &euro;0.07/kWh, multiplier: 0.5</div>
+                            </div>
+                            
+                            <div class="example-component">
+                                <div class="example-component-name">50% Variable Market Price</div>
+                                <div class="example-component-detail">Variable 1.1 &times; BELPEX_RLP + &euro;0.04/kWh, multiplier: 0.5</div>
+                            </div>
+                            
+                            <div class="example-component">
+                                <div class="example-component-name">Grid Access Fee</div>
+                                <div class="example-component-detail">Constant &euro;18.00 / year</div>
+                            </div>
+                            
+                            <div class="example-component">
+                                <div class="example-component-name">Energy Tax</div>
+                                <div class="example-component-detail">Fixed &euro;0.05/kWh</div>
+                            </div>
+                            
+                            <div class="example-component">
+                                <div class="example-component-name">Capacity Charge</div>
+                                <div class="example-component-detail">Capacity &euro;53.00 / kW / year</div>
+                            </div>
+                            
+                            <div class="example-component">
+                                <div class="example-component-name">Solar Injection Reward</div>
+                                <div class="example-component-detail">Variable 0.2 &times; BELPEX_RLP injection reward</div>
+                            </div>
+
+                            <div class="example-component">
+                                <div class="example-component-name">VAT (6%)</div>
+                                <div class="example-component-detail">Percentage 6% on all components except Solar Injection Reward</div>
+                            </div>
+
+                            <div class="example-component">
+                                <div class="example-component-name">Total monthly bill:</div>
+                                <ul style="list-style-type:none;">
+                                    <li>+ 0.5 &times; 0.07 &times; consumption</li>
+                                    <li>+ 0.5 &times; &sum;(1.1 &times; BELPEX_RLP[t] + 0.04) &times; consumption[t]</li>
+                                    <li>+ 18.00 / 12</li>
+                                    <li>+ 0.05 &times; consumption</li>
+                                    <li>+ 53.00 &times; peak_kW / 12</li>
+                                    <li>+ 6% on all above</li>
+                                    <li> - &sum;(0.2 &times; BELPEX_RLP[t] &times; injection[t])</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <p style="margin-top: 1.5rem; font-size: 0.9rem; color: var(--color-text-light);">
+                        <strong>Note:</strong> Multipliers allow flexible scaling of component importance. They don't need to sum to 1.0 &mdash; 
+                        they simply define the relative contribution of each component to the total cost. A multiplier of 0.5 means 50% of the 
+                        component's value is included in the final calculation, allowing you to blend different pricing mechanisms flexibly.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

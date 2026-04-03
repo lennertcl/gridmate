@@ -1,0 +1,223 @@
+{% extends "layout.html" %}
+
+{% block title %}Optimization Dashboard - GridMate{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/optimization.css') }}">
+
+{% if not config.enabled %}
+<div class="page-header">
+    <h2>Optimization Dashboard</h2>
+    <p>Energy optimization is not enabled</p>
+</div>
+<div class="dashboard-grid">
+    <section class="card card-full-width">
+        <div class="empty-state">
+            <i class="fas fa-cogs empty-state-icon"></i>
+            <h3>Optimization Not Configured</h3>
+            <p>Enable EMHASS energy optimization to see schedules, forecasts and savings.</p>
+            <a href="{{ url_for('settings_optimization.optimization_settings') }}" class="btn btn-primary">Configure Optimization</a>
+        </div>
+    </section>
+</div>
+{% else %}
+
+<div class="page-header">
+    <h2>Optimization Dashboard</h2>
+    <div class="page-header-actions">
+        <button class="btn btn-primary btn-sm" id="btn-run-optimization" onclick="runOptimization()">
+            <i class="fas fa-play"></i> Run Now
+        </button>
+    </div>
+</div>
+
+<div class="dashboard-grid optimization-grid">
+
+    <section class="card card-full-width">
+        <div class="optimization-status-bar">
+            <div class="status-item">
+                <span class="status-label">EMHASS</span>
+                <span class="badge" id="emhass-badge">Checking...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Actuation</span>
+                <span class="badge badge-{{ 'active' if config.actuation_mode == 'automatic' else 'info' if config.actuation_mode == 'notify' else 'secondary' }}">
+                    {{ config.actuation_mode | title }}
+                </span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Last Run</span>
+                <span class="status-value" id="last-run-time">
+                    {% if config.last_optimization_run %}
+                        {{ config.last_optimization_run.strftime('%H:%M') }}
+                    {% else %}
+                        Never
+                    {% endif %}
+                </span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Status</span>
+                <span class="badge badge-{{ 'active' if config.last_optimization_status == 'success' else 'danger' if 'error' in (config.last_optimization_status or '') else 'secondary' }}" id="run-status">
+                    {{ config.last_optimization_status or 'Pending' }}
+                </span>
+            </div>
+        </div>
+    </section>
+
+    {% if result %}
+
+    <section class="card card-full-width">
+        <h3>Energy Plan</h3>
+        <div class="chart-container chart-container-lg">
+            <canvas id="energy-plan-chart"></canvas>
+        </div>
+    </section>
+
+    <section class="card summary-card">
+        <h3>Production</h3>
+        <div class="summary-value">{{ "%.1f" | format(result.total_pv_production_kwh) }} kWh</div>
+        <div class="summary-label">Forecasted solar</div>
+    </section>
+
+    <section class="card summary-card">
+        <h3>Grid Import</h3>
+        <div class="summary-value">{{ "%.1f" | format(result.total_grid_import_kwh) }} kWh</div>
+        <div class="summary-label">From grid</div>
+    </section>
+
+    <section class="card summary-card">
+        <h3>Grid Export</h3>
+        <div class="summary-value">{{ "%.1f" | format(result.total_grid_export_kwh) }} kWh</div>
+        <div class="summary-label">Injected to grid</div>
+    </section>
+
+    <section class="card summary-card">
+        <h3>Self-Consumption</h3>
+        <div class="summary-value">{{ "%.1f" | format(result.total_self_consumption_kwh) }} kWh</div>
+        <div class="summary-label">Own production used</div>
+    </section>
+
+    <section class="card card-full-width">
+        <h3>Managed Devices</h3>
+        {% if managed_battery or deferrable_loads %}
+        <div class="managed-devices-list">
+            {% if managed_battery %}
+            <div class="managed-device-card">
+                <div class="managed-device-header">
+                    <div class="managed-device-info">
+                        <span class="managed-device-name">
+                            <a class="text-link text-primary" href="{{ url_for('dashboard.device_detail', device_id=managed_battery.device_id) }}">
+                                {{ managed_battery.device_name }}
+                            </a>
+                        </span>
+                        <span class="managed-device-power">{{ managed_battery.capacity_kwh }} kWh</span>
+                        <span class="managed-device-duration">{{ managed_battery.max_charge_power_kw }} kW charge</span>
+                        <span class="managed-device-window">{{ managed_battery.max_discharge_power_kw }} kW discharge</span>
+                    </div>
+                    <div class="managed-device-actions">
+                        <label class="toggle-label toggle-sm">
+                            <input type="checkbox" class="toggle-input" data-device="{{ managed_battery.device_id }}"
+                                   {% if managed_battery.enabled %}checked{% endif %}
+                                   onchange="toggleDeviceOptimization(this, '{{ managed_battery.device_id }}')">
+                            <span class="toggle-switch"></span>
+                        </label>
+                    </div>
+                </div>
+                {% if battery_schedule and battery_schedule.schedule_entries %}
+                <div class="device-schedule-blocks">
+                    {% for entry in battery_schedule.schedule_entries %}
+                    <div class="schedule-block {% if entry.power_w > 0 %}schedule-block-charge{% else %}schedule-block-discharge{% endif %}">
+                        <i class="fas {% if entry.power_w > 0 %}fa-arrow-up{% else %}fa-arrow-down{% endif %} schedule-block-icon"></i>
+                        <span class="schedule-block-time">{{ entry.start_time.strftime('%H:%M') if entry.start_time.strftime is defined else entry.start_time }} - {{ entry.end_time.strftime('%H:%M') if entry.end_time.strftime is defined else entry.end_time }}</span>
+                        <span class="schedule-block-power">{{ "%.2f"|format(entry.power_w|abs) }} kW</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="device-timeline-empty">
+                    <span>No scheduled windows in current plan</span>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% for load in deferrable_loads %}
+            {% set schedule = result.device_schedules.get(load.device_id) %}
+            <div class="managed-device-card">
+                <div class="managed-device-header">
+                    <div class="managed-device-info">
+                        <span class="managed-device-name">
+                            <a class="text-link text-primary" href="{{ url_for('dashboard.device_detail', device_id=load.device_id) }}">
+                                {{ device_names.get(load.device_id, load.device_id) }}
+                            </a>
+                        </span>
+                        <span class="managed-device-power">{{ load.nominal_power_w }} W</span>
+                        <span class="managed-device-duration">{{ load.operating_duration_hours }} h</span>
+                        {% if load.earliest_start_time %}
+                        <span class="managed-device-window">{{ load.earliest_start_time }} - {{ load.latest_end_time }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="managed-device-actions">
+                        {% if schedule and schedule.total_energy_kwh > 0 %}
+                        <span class="managed-device-energy">{{ "%.2f" | format(schedule.total_energy_kwh) }} kWh</span>
+                        {% endif %}
+                        <label class="toggle-label toggle-sm">
+                            <input type="checkbox" class="toggle-input" data-device="{{ load.device_id }}"
+                                   {% if load.enabled %}checked{% endif %}
+                                   onchange="toggleDeviceOptimization(this, '{{ load.device_id }}')">
+                            <span class="toggle-switch"></span>
+                        </label>
+                    </div>
+                </div>
+                {% if schedule and schedule.schedule_entries %}
+                <div class="device-schedule-blocks">
+                    {% for entry in schedule.schedule_entries %}
+                    <div class="schedule-block {% if entry.is_active %}active{% endif %}">
+                        <span class="schedule-block-time">{{ entry.start_time.strftime('%H:%M') if entry.start_time.strftime is defined else entry.start_time }} - {{ entry.end_time.strftime('%H:%M') if entry.end_time.strftime is defined else entry.end_time }}</span>
+                        <span class="schedule-block-power">{{ "%.0f" | format(entry.power_w) }} W</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="device-timeline-empty">
+                    <span>No scheduled windows in current plan</span>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state-sm">
+            <p>No devices are configured for optimization.</p>
+            <a href="{{ url_for('settings_device.devices') }}" class="btn btn-secondary btn-sm">Configure Devices</a>
+        </div>
+        {% endif %}
+        <small>Add the <em>deferrable_load</em> type to a device or enable optimization on your <em>home_battery</em> device to include it in scheduling.</small>
+    </section>
+
+    {% else %}
+
+    <section class="card card-full-width">
+        <div class="empty-state">
+            <i class="fas fa-chart-area empty-state-icon"></i>
+            <h3>No Optimization Results Yet</h3>
+            <p>Run an optimization to see power forecasts, device schedules and cost estimates.</p>
+            <button class="btn btn-primary" onclick="runOptimization()">Run Optimization Now</button>
+        </div>
+    </section>
+
+    {% endif %}
+
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if config.enabled %}
+<script>
+const OPTIMIZATION_RESULT = {{ result.to_dict() | tojson if result else 'null' }};
+const DEVICE_NAMES = {{ device_names | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/optimization-dashboard.js') }}"></script>
+{% endif %}
+{% endblock %}

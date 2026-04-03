@@ -1,0 +1,136 @@
+{% extends "layout.html" %}
+
+{% block title %}Optimization Settings - GridMate{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings/optimization.css') }}">
+
+<div class="page-header">
+    <h2>Optimization Settings</h2>
+    <p>Configure EMHASS energy optimization &mdash; <a href="{{ url_for('guides.optimization') }}" class="explanation-link">Go to guide</a></p>
+</div>
+
+<div class="settings-container">
+
+    <section class="card">
+        <h3>EMHASS Connection</h3>
+        <div class="emhass-connection-status">
+            <div class="status-indicator" id="emhass-status">
+                <span class="status-dot"></span>
+                <span class="status-text">Checking...</span>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-test-connection">Test Connection</button>
+        </div>
+        <form class="form-group" id="optimizationSettingsForm" method="POST" novalidate>
+            {{ form.hidden_tag() }}
+
+            <div class="form-row">
+                <div class="form-col">
+                    <label for="{{ form.emhass_url.id }}">{{ form.emhass_url.label }}</label>
+                    {{ form.emhass_url(class="form-control", placeholder=prefill_emhass_url) }}
+                    <small>Leave empty to use the auto-detected URL (<code>{{ prefill_emhass_url }}</code>)</small>
+                    {% if form.emhass_url.errors %}
+                        <small class="error">{{ form.emhass_url.errors[0] }}</small>
+                    {% endif %}
+                </div>
+                <div class="form-col">
+                    <label for="{{ form.actuation_mode.id }}">{{ form.actuation_mode.label }}</label>
+                    {{ form.actuation_mode(class="form-control") }}
+                    <small>How GridMate should act on optimization results</small>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-col">
+                    <label for="{{ form.dayahead_schedule_time.id }}">{{ form.dayahead_schedule_time.label }}</label>
+                    {{ form.dayahead_schedule_time(class="form-control", type="time") }}
+                    <small>Time of day to run the day-ahead optimization</small>
+                    {% if form.dayahead_schedule_time.errors %}
+                        <small class="error">{{ form.dayahead_schedule_time.errors[0] }}</small>
+                    {% endif %}
+                </div>
+                <div class="form-col">
+                    <label class="toggle-label">
+                        {{ form.enabled(class="toggle-input") }}
+                        <span class="toggle-switch"></span>
+                        {{ form.enabled.label.text }}
+                    </label>
+                    <small>Enable automatic optimization scheduling</small>
+                </div>
+            </div>
+    </section>
+
+    <section class="card">
+        <h3>Grid &amp; Load</h3>
+
+            <div class="form-row">
+                <div class="form-col">
+                    <label for="{{ form.max_grid_import_w.id }}">{{ form.max_grid_import_w.label }}</label>
+                    {{ form.max_grid_import_w(class="form-control", min="0") }}
+                    <small>Maximum power drawn from grid (watts)</small>
+                    {% if form.max_grid_import_w.errors %}
+                        <small class="error">{{ form.max_grid_import_w.errors[0] }}</small>
+                    {% endif %}
+                </div>
+                <div class="form-col">
+                    <label for="{{ form.max_grid_export_w.id }}">{{ form.max_grid_export_w.label }}</label>
+                    {{ form.max_grid_export_w(class="form-control", min="0") }}
+                    <small>Maximum power injected to grid (watts)</small>
+                    {% if form.max_grid_export_w.errors %}
+                        <small class="error">{{ form.max_grid_export_w.errors[0] }}</small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <hr>
+            <h4>Load Power</h4>
+            <p>Define the non-deferrable household load used in optimization.</p>
+
+            <div class="form-row">
+                <div class="form-col">
+                    <label for="{{ form.load_power_source_type.id }}">{{ form.load_power_source_type.label }}</label>
+                    {{ form.load_power_source_type(class="form-control") }}
+                    <small>Use a HA sensor or define a repeating daily schedule</small>
+                </div>
+            </div>
+
+            <div id="load-power-sensor-section">
+                <div class="form-row">
+                    <div class="form-col">
+                        <label for="{{ form.load_power_sensor_entity.id }}">{{ form.load_power_sensor_entity.label }}</label>
+                        {{ form.load_power_sensor_entity(class="form-control", placeholder="sensor.total_power") }}
+                        <small>HA entity providing total household load excluding deferrable devices (W)</small>
+                    </div>
+                </div>
+            </div>
+
+            <div id="load-power-schedule-section" style="display: none;">
+                <p>Define power blocks covering the full day (00:00&ndash;23:59). For constant load, use a single block.</p>
+                <div id="schedule-blocks-container"></div>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-schedule-block">
+                    <i class="fas fa-plus"></i> Add Block
+                </button>
+                <input type="hidden" name="load_power_schedule_blocks" id="load_power_schedule_blocks"
+                       value="{{ schedule_blocks_json }}">
+            </div>
+    </section>
+
+    <section class="card">
+        <h3>EMHASS Configuration</h3>
+        <p>View the live configuration currently active in EMHASS. Saving settings will push an updated config automatically.</p>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-fetch-config">
+            <i class="fas fa-download"></i> Fetch Config
+        </button>
+        <pre class="config-preview" id="emhass-config-preview" style="display: none;"></pre>
+    </section>
+
+    <div class="form-actions">
+        {{ form.submit(class="btn btn-primary") }}
+    </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/optimization-settings.js') }}"></script>
+{% endblock %}

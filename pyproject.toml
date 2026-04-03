@@ -1,0 +1,20 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "F",     # pyflakes (unused imports, variables, etc.)
+    "I",     # isort (import sorting)
+]
+
+unfixable = [
+    "F401",  # unused imports - report only, fix manually
+    "F841",  # unused variables - report only, fix manually
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.ruff.format]
+quote-style = "single"

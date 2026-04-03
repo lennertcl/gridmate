@@ -1,0 +1,30 @@
+name: GridMate
+version: "2.0.0"
+slug: gridmate
+description: GridMate Energy Management System Add-on for Home Assistant
+url: https://github.com/lennertcl/gridmate
+arch:
+  - armhf
+  - armv7
+  - aarch64
+  - amd64
+  - i386
+hassio_api: true
+homeassistant_api: true
+hassio_role: manager
+init: false
+ingress: true
+ingress_port: 8000
+ingress_entry: /
+panel_icon: mdi:lightning-bolt
+panel_title: GridMate
+ports:
+  8000/tcp: 8000
+ports_description:
+  8000/tcp: Web interface (direct access, also available via ingress)
+startup: application
+boot: auto
+options:
+  ha_token: ""
+schema:
+  ha_token: "str?"

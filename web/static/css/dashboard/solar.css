@@ -1,0 +1,284 @@
+.solar-grid {
+    gap: 1.25rem;
+}
+
+.solar-hero-card {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, var(--color-surface) 0%, #fffde6 100%);
+    border-left: 4px solid var(--color-production);
+}
+
+.solar-hero {
+    display: flex;
+    gap: 2.5rem;
+    align-items: stretch;
+    position: relative;
+}
+
+.solar-hero-production {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 220px;
+    padding: 1.5rem 2rem;
+    border-right: 2px solid var(--color-border);
+    position: relative;
+}
+
+.solar-hero-label {
+    font-size: 0.78rem;
+    color: var(--color-text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.solar-hero-label::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-production);
+    box-shadow: 0 0 6px rgba(235, 231, 48, 0.5);
+}
+
+.solar-hero-value {
+    font-size: 2.8rem;
+    font-weight: 700;
+    line-height: 1.1;
+    margin: 0.3rem 0;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text);
+}
+
+.solar-hero-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    flex: 1;
+    padding: 1rem;
+}
+
+.solar-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    background: rgba(255, 255, 255, 0.75);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    backdrop-filter: blur(4px);
+}
+
+.solar-stat i {
+    font-size: 1.25rem;
+    color: var(--color-production);
+    width: 2rem;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.solar-stat-content {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.solar-stat-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.solar-stat-label {
+    font-size: 0.72rem;
+    color: var(--color-text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 500;
+}
+
+.solar-chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.solar-chart-header h3 {
+    margin: 0;
+}
+
+.solar-chart-header .range-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 0.375rem 0.5rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.solar-chart-header .range-inputs {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.solar-chart-header .range-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.solar-chart-header .range-label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-light);
+    padding-left: 0.25rem;
+    line-height: 1;
+}
+
+.solar-chart-header .range-input {
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    outline: none;
+    transition: var(--transition);
+    line-height: 1.4;
+}
+
+.solar-chart-header .range-input:hover {
+    border-color: var(--color-border);
+}
+
+.solar-chart-header .range-input:focus {
+    border-color: var(--color-primary);
+    background-color: var(--color-surface);
+    box-shadow: 0 0 0 2px rgba(0, 217, 126, 0.12);
+}
+
+.solar-chart-header .range-input::-webkit-calendar-picker-indicator {
+    filter: opacity(0.5);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.solar-chart-header .range-input::-webkit-calendar-picker-indicator:hover {
+    filter: opacity(0.8);
+}
+
+.solar-chart-header .btn-icon {
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--color-text-light);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    cursor: pointer;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+.solar-chart-header .btn-icon:hover {
+    background: var(--color-bg);
+    border-color: var(--color-border);
+    color: var(--color-primary-dark);
+}
+
+.solar-chart-header .btn-icon:active {
+    transform: scale(0.92);
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+    text-align: center;
+}
+
+.empty-state-icon {
+    font-size: 3.5rem;
+    color: var(--color-text-light);
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    color: var(--color-text-light);
+    margin-bottom: 1.5rem;
+    max-width: 400px;
+}
+
+@media (max-width: 900px) {
+    .solar-hero {
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    .solar-hero-production {
+        border-right: none;
+        border-bottom: 2px solid var(--color-border);
+        padding: 1rem;
+        min-width: auto;
+    }
+
+    .solar-hero-stats {
+        grid-template-columns: 1fr;
+        padding: 0.5rem;
+    }
+
+    .solar-chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .solar-chart-header .range-selector {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .solar-chart-header .range-inputs {
+        flex-direction: column;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .solar-chart-header .range-field {
+        width: 100%;
+    }
+
+    .solar-chart-header .range-input {
+        width: 100%;
+    }
+}

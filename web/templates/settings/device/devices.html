@@ -1,0 +1,64 @@
+{% extends "layout.html" %}
+
+{% block title %}Device Configuration - GridMate{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Device Configuration</h2>
+    <p>Add and configure your smart devices &mdash; <a href="{{ url_for('guides.devices') }}" class="explanation-link">Go to guide</a></p>
+    <div class="page-header-actions">
+        <a href="{{ url_for('settings_device.add_device') }}" class="btn btn-primary">+ Add Device</a>
+    </div>
+</div>
+
+<div class="settings-container">
+    <section class="card card-full-width">
+        <h3><i class="fas fa-microchip"></i> Configured Devices</h3>
+        <div style="overflow-x: auto;">
+        <div class="device-table device-config-table">
+            <div class="device-header">
+                <div class="col-name">Device Name</div>
+                <div class="col-type">Types</div>
+                <div class="col-params">Parameters</div>
+                <div class="col-actions">Actions</div>
+            </div>
+            {% if devices %}
+                {% for device in devices %}
+                {% set pt = type_registry.get(device.primary_type) %}
+                <a href="{{ url_for('dashboard.device_detail', device_id=device.device_id) }}" class="device-row device-row-link">
+                    <div class="col-name">
+                        <div class="device-name-with-icon">
+                            <i class="{{ pt.icon if pt else 'fas fa-plug' }} device-type-icon"></i>
+                            <div class="device-name-text">
+                                <strong>{{ device.name }}</strong>
+                                <span class="device-id">{{ device.device_id }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-type">
+                        <span class="badge badge-type">{{ pt.name if pt else device.primary_type }}</span>
+                        {% if device.secondary_types %}
+                        <span class="badge badge-secondary-count">+{{ device.secondary_types|length }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-params">
+                        <span class="param-count">{{ device.custom_parameters|length }} configured</span>
+                    </div>
+                    <div class="col-actions">
+                        <span href="{{ url_for('settings_device.edit_device', device_id=device.device_id) }}" class="btn btn-sm btn-secondary" onclick="event.preventDefault(); event.stopPropagation(); window.location.href='{{ url_for('settings_device.edit_device', device_id=device.device_id) }}';">Edit</span>
+                        <span href="{{ url_for('settings_device.remove_device', device_id=device.device_id) }}" class="btn btn-sm btn-danger" onclick="event.preventDefault(); event.stopPropagation(); if(confirm('Are you sure you want to remove this device?')) window.location.href='{{ url_for('settings_device.remove_device', device_id=device.device_id) }}';">Remove</span>
+                    </div>
+                </a>
+                {% endfor %}
+            {% else %}
+                <div class="device-row">
+                    <div class="col-full">
+                        <p class="empty-state">No devices configured yet. Click "Add Device" to get started.</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

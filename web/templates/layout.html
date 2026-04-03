@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}GridMate{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Combined Header & Navigation -->
+        <header class="app-header">
+            <div class="header-nav-container">
+                <!-- Branding -->
+                <div class="header-branding">
+                    <i class="fas fa-leaf"></i>
+                    <div class="branding-text">
+                        <h1 class="app-title">GridMate</h1>
+                        <p class="app-subtitle">Home Energy Management System</p>
+                    </div>
+                </div>
+
+                <!-- Navigation Menu -->
+                <nav class="header-nav">
+                    <div class="nav-menu">
+                        <a href="{{ url_for('main.home') }}" class="btn nav-link {% if request.path == '/' %}active{% endif %}">
+                            <i class="fas fa-home nav-icon"></i>
+                            <span>Home</span>
+                        </a>
+                        <div class="nav-group">
+                            <button class="btn nav-link nav-group-toggle" data-group="dashboard">
+                                <i class="fas fa-chart-line nav-icon"></i>
+                                <span>Dashboard</span>
+                                <span class="nav-arrow">▼</span>
+                            </button>
+                            <div class="nav-submenu" id="dashboard-menu">
+                                <a href="{{ url_for('dashboard.live') }}" class="nav-sublink {% if 'live' in request.path %}active{% endif %}">
+                                    <span>Live</span>
+                                </a>
+                                <a href="{{ url_for('dashboard.solar') }}" class="nav-sublink {% if 'solar' in request.path %}active{% endif %}">
+                                    <span>Solar Panels</span>
+                                </a>
+                                <a href="{{ battery_nav_url }}" class="nav-sublink {% if 'battery' in request.path or 'home_battery' in request.url %}active{% endif %}">
+                                    <span>Home Battery</span>
+                                </a>
+                                <a href="{{ url_for('dashboard.devices') }}" class="nav-sublink {% if 'devices' in request.path %}active{% endif %}">
+                                    <span>Devices</span>
+                                </a>
+                                <a href="{{ url_for('dashboard.energy_costs') }}" class="nav-sublink {% if 'costs' in request.path %}active{% endif %}">
+                                    <span>Energy Costs</span>
+                                </a>
+                                <a href="{{ url_for('dashboard_optimization.optimization_dashboard') }}" class="nav-sublink {% if 'optimization' in request.path and 'settings' not in request.path %}active{% endif %}">
+                                    <span>Optimization</span>
+                                </a>
+                            </div>
+                        </div>
+                        <div class="nav-group">
+                            <button class="btn nav-link nav-group-toggle" data-group="settings">
+                                <i class="fas fa-cog nav-icon"></i>
+                                <span>Settings</span>
+                                <span class="nav-arrow">▼</span>
+                            </button>
+                            <div class="nav-submenu" id="settings-menu">
+                                <a href="{{ url_for('settings_energy.energy_feed') }}" class="nav-sublink {% if 'energy-feed' in request.path %}active{% endif %}">
+                                    <span>Energy Feed</span>
+                                </a>
+                                <a href="{{ url_for('settings_device.devices') }}" class="nav-sublink {% if 'device' in request.path %}active{% endif %}">
+                                    <span>Devices</span>
+                                </a>
+                                <a href="{{ url_for('settings_device.solar_panels') }}" class="nav-sublink {% if 'solar-panels' in request.path %}active{% endif %}">
+                                    <span>Solar Panels</span>
+                                </a>
+                                <a href="{{ url_for('settings_energy.energy_contract') }}" class="nav-sublink {% if 'energy-contract' in request.path %}active{% endif %}">
+                                    <span>Energy Contract</span>
+                                </a>
+                                <a href="{{ url_for('settings_optimization.optimization_settings') }}" class="nav-sublink {% if 'optimization' in request.path and 'settings' in request.path %}active{% endif %}">
+                                    <span>Optimization</span>
+                                </a>
+                                <a href="{{ url_for('settings_main.edit_settings_json') }}" class="nav-sublink {% if 'settings-json' in request.path %}active{% endif %}">
+                                    <span>Edit settings.json</span>
+                                </a>
+                            </div>
+                        </div>
+                        <div class="nav-group">
+                            <button class="btn nav-link nav-group-toggle" data-group="guides">
+                                <i class="fas fa-book nav-icon"></i>
+                                <span>Guides</span>
+                                <span class="nav-arrow">▼</span>
+                            </button>
+                            <div class="nav-submenu" id="guides-menu">
+                                <a href="{{ url_for('guides.getting_started') }}" class="nav-sublink {% if request.path == '/guides' %}active{% endif %}">
+                                    <span>Getting Started</span>
+                                </a>
+                                <a href="{{ url_for('guides.energy_feed') }}" class="nav-sublink {% if 'guides/energy-feed' in request.path %}active{% endif %}">
+                                    <span>Energy Feed</span>
+                                </a>
+                                <a href="{{ url_for('guides.solar_panels') }}" class="nav-sublink {% if 'guides/solar-panels' in request.path %}active{% endif %}">
+                                    <span>Solar Panels</span>
+                                </a>
+                                <a href="{{ url_for('guides.devices') }}" class="nav-sublink {% if 'guides/devices' in request.path %}active{% endif %}">
+                                    <span>Devices</span>
+                                </a>
+                                <a href="{{ url_for('guides.energy_contract') }}" class="nav-sublink {% if 'guides/energy-contract' in request.path %}active{% endif %}">
+                                    <span>Energy Contract</span>
+                                </a>
+                                <a href="{{ url_for('guides.optimization') }}" class="nav-sublink {% if 'guides/optimization' in request.path %}active{% endif %}">
+                                    <span>Optimization</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="nav-toggle" id="nav-toggle"><i class="fas fa-bars"></i></button>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            {{ message }}
+                            <button class="alert-close" onclick="this.parentElement.style.display='none';">×</button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="content-wrapper">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>&copy; 2025 GridMate. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>window.GRIDMATE_BASE = "{{ request.script_root }}";</script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

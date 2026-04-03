@@ -1,0 +1,95 @@
+{% extends "layout.html" %}
+
+{% block title %}Solar Panels Configuration - GridMate{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Solar Panels Configuration</h2>
+    <p>Configure your Home Assistant solar panel sensors &mdash; <a href="{{ url_for('guides.solar_panels') }}" class="explanation-link">Go to guide</a></p>
+</div>
+
+<div class="settings-container">
+    <section class="card">
+        <h3>Solar Sensor Configuration</h3>
+        <form class="form-group" id="solarForm" method="POST" novalidate>
+            {{ form.hidden_tag() }}
+
+            <div class="form-section">
+                <h4>Solar Panel Sensors</h4>
+                <p class="section-description">Live sensor entity IDs from your solar panel inverter in Home Assistant</p>
+                <div class="form-row">
+                    <div class="form-col">
+                        <label for="{{ form.actual_production.id }}">{{ form.actual_production.label }}</label>
+                        {{ form.actual_production(class="form-control", placeholder="sensor.solar_power_production") }}
+                        <small>Instantaneous power production in kW</small>
+                    </div>
+                    <div class="form-col">
+                        <label for="{{ form.energy_production_today.id }}">{{ form.energy_production_today.label }}</label>
+                        {{ form.energy_production_today(class="form-control", placeholder="sensor.solar_energy_today") }}
+                        <small>Energy produced today in kWh</small>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-col">
+                        <label for="{{ form.energy_production_lifetime.id }}">{{ form.energy_production_lifetime.label }}</label>
+                        {{ form.energy_production_lifetime(class="form-control", placeholder="sensor.solar_energy_lifetime") }}
+                        <small>Total energy produced over the lifetime in kWh</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h4>Solar Estimation Sensors</h4>
+                <p class="section-description">Forecast/estimation sensors (e.g. from <a href="https://www.home-assistant.io/integrations/forecast_solar/" target="_blank">Forecast.Solar</a> integration)</p>
+                <div class="form-row">
+                    <div class="form-col">
+                        <label for="{{ form.estimated_actual_production.id }}">{{ form.estimated_actual_production.label }}</label>
+                        {{ form.estimated_actual_production(class="form-control", placeholder="sensor.energy_production_now") }}
+                        <small>Estimated instantaneous power production (kW)</small>
+                    </div>
+                    <div class="form-col">
+                        <label for="{{ form.estimated_energy_production_today.id }}">{{ form.estimated_energy_production_today.label }}</label>
+                        {{ form.estimated_energy_production_today(class="form-control", placeholder="sensor.energy_production_today") }}
+                        <small>Estimated total production for today (kWh)</small>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-col">
+                        <label for="{{ form.estimated_energy_production_remaining_today.id }}">{{ form.estimated_energy_production_remaining_today.label }}</label>
+                        {{ form.estimated_energy_production_remaining_today(class="form-control", placeholder="sensor.energy_production_today_remaining") }}
+                        <small>Remaining estimated production for today (kWh)</small>
+                    </div>
+                    <div class="form-col">
+                        <label for="{{ form.estimated_energy_production_hour.id }}">{{ form.estimated_energy_production_hour.label }}</label>
+                        {{ form.estimated_energy_production_hour(class="form-control", placeholder="sensor.energy_production_this_hour") }}
+                        <small>Estimated production this hour (kWh)</small>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-col">
+                        <label for="{{ form.estimated_actual_production_offset_day.id }}">{{ form.estimated_actual_production_offset_day.label }}</label>
+                        {{ form.estimated_actual_production_offset_day(class="form-control", placeholder="sensor.energy_production_tomorrow") }}
+                        <small>Estimated power 24h from now (kW)</small>
+                    </div>
+                    <div class="form-col">
+                        <label for="{{ form.estimated_energy_production_offset_day.id }}">{{ form.estimated_energy_production_offset_day.label }}</label>
+                        {{ form.estimated_energy_production_offset_day(class="form-control", placeholder="sensor.energy_production_next_day") }}
+                        <small>Estimated total production next 24h (kWh)</small>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-col">
+                        <label for="{{ form.estimated_energy_production_offset_hour.id }}">{{ form.estimated_energy_production_offset_hour.label }}</label>
+                        {{ form.estimated_energy_production_offset_hour(class="form-control", placeholder="sensor.energy_production_next_hour") }}
+                        <small>Estimated production next hour (kWh)</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                {{ form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}

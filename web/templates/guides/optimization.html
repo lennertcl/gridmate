@@ -1,0 +1,89 @@
+{% extends "layout.html" %}
+
+{% block title %}Optimization Guide - GridMate{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings/optimization.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/guides.css') }}">
+
+<div class="page-header">
+    <h2>Optimization Guide</h2>
+    <p>How to set up EMHASS energy optimization &mdash; <a href="{{ url_for('settings_optimization.optimization_settings') }}" class="explanation-link">Go to configuration</a></p>
+</div>
+
+<div class="settings-container">
+    <section class="card card-full-width explanation-card">
+        <h3>Field Explanations</h3>
+
+        <div class="explanation-section">
+            <h4><i class="fas fa-plug"></i> Prerequisites</h4>
+            <div class="explanation-content">
+                <p>Before configuring optimization, ensure the following are set up:</p>
+                <ul>
+                    <li><strong>EMHASS add-on:</strong> Install and start <a href="https://github.com/davidusb-geek/emhass" target="_blank">EMHASS</a> from the HA Add-on Store</li>
+                    <li><strong>Energy contract:</strong> Configure your <a href="{{ url_for('guides.energy_contract') }}">energy contract</a></li>
+                    <li><strong>Solar panels:</strong> If applicable, configure in <a href="{{ url_for('settings_device.solar_panels') }}">solar panel settings</a></li>
+                    <li><strong>Home battery:</strong> If applicable, add a device with the <em>home_battery</em> type in <a href="{{ url_for('settings_device.devices') }}">device settings</a> and enable <em>opt_enabled</em> to include the battery in optimization.</li>
+                    <li><strong>Deferrable devices:</strong> Add the <em>Deferrable Load</em> type to devices in <a href="{{ url_for('settings_device.devices') }}">device settings</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="explanation-section">
+            <h4><i class="fas fa-link"></i> EMHASS Connection</h4>
+            <div class="explanation-content">
+                <dl>
+                    <dt>EMHASS URL</dt>
+                    <dd>REST API URL of the EMHASS add-on. Can be left blank for autofill.</dd>
+                    <dt>Actuation Mode</dt>
+                    <dd>
+                        <strong>Manual:</strong> show schedule only. 
+                        <br><strong>Automatic:</strong> control devices directly. (Not working yet, to be added later)</dd>
+                    </dd>
+                    <dt>Day-Ahead Run Time</dt>
+                    <dd>Time of day to run the day-ahead optimization (e.g., 05:30 before morning consumption starts).
+                        <br>Not working yet, to be added later. You can use a HA automation to POST to the /api/optimization/run endpoint for now</dd>
+                    </dd>
+                    <dt>Enable Optimization</dt>
+                    <dd>Master switch for automated runs. Manual optimization is always available from the dashboard.
+                </dl>
+            </div>
+        </div>
+
+        <div class="explanation-section">
+            <h4><i class="fas fa-bolt"></i> Grid &amp; Load</h4>
+            <div class="explanation-content">
+                <dl>
+                    <dt>Max Grid Import (W)</dt>
+                    <dd>Maximum power to pull from the grid. The optimizer will respect this limit.</dd>
+                    <dt>Max Grid Export (W)</dt>
+                    <dd>Maximum power to feed to the grid. Set to your inverter's max output if no export limit applies.</dd>
+                    <dt>Load Power Source</dt>
+                    <dd>
+                        The base load power expected from devices not included in the optimization. E.g. you may expect a higher base load between 18:00-20:00 if that's when you cook dinner.
+                        <br>Choose how non-deferrable household load is provided to the optimizer:
+                        <ul>
+                            <li><strong>Home Assistant Sensor:</strong> A sensor entity reporting total household power in Watts, excluding deferrable loads. EMHASS uses this as <code>sensor_power_load_no_var_loads</code>.</li>
+                            <li><strong>Fixed Schedule:</strong> Define time blocks with a constant power value each. The schedule repeats daily and is sent to EMHASS as <code>load_power_forecast</code> at runtime.</li>
+                        </ul>
+                    </dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="explanation-section">
+            <h4><i class="fas fa-car-battery"></i> Battery</h4>
+            <div class="explanation-content">
+                <p>Battery optimization is controlled per-device. In <a href="{{ url_for('settings_device.devices') }}">device settings</a>, enable the <em>opt_enabled</em> parameter on a device with the <em>home_battery</em> type. Battery SOC limits (min, max, target) and efficiency settings are configured as parameters on the device itself. Note that EMHASS currently only supports a singly battery in optimization.</p>
+            </div>
+        </div>
+
+        <div class="explanation-section">
+            <h4><i class="fas fa-file-code"></i> EMHASS Configuration</h4>
+            <div class="explanation-content">
+                <p>GridMate pushes a complete configuration to EMHASS via the <code>set-config</code> API whenever you save settings. Use the <em>Fetch Config</em> button to view the config currently active in EMHASS. Runtime parameters (energy cost forecasts, load power forecasts, current battery SOC) are passed automatically by GridMate during each optimization call.</p>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

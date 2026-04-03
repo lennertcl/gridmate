@@ -1,0 +1,124 @@
+{% extends "layout.html" %}
+
+{% block title %}Energy Feed Configuration - GridMate{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Energy Feed Configuration</h2>
+    <p>Configure your DSMR meter sensors from Home Assistant &mdash; <a href="{{ url_for('guides.energy_feed') }}" class="explanation-link">Go to guide</a></p>
+</div>
+
+<div class="settings-container">
+
+    <section class="card">
+        <h3>Configuration Setup</h3>
+        <form class="form-group" id="energyFeedForm" method="POST" novalidate>
+            {{ form.hidden_tag() }}
+            
+            <!-- Total Energy Consumption from Grid -->
+            <div class="form-section">
+                <h4>Total Energy Consumption (from Grid)</h4>
+                <p class="section-description">Cumulative energy consumed from the grid by tariff rate</p>
+                <div class="form-row">
+                    <div class="form-col">
+                        <label for="{{ form.total_consumption_high_tariff.id }}">{{ form.total_consumption_high_tariff.label }}</label>
+                        {{ form.total_consumption_high_tariff(class="form-control", placeholder="sensor.electricity_used_tariff_1") }}
+                        <small>Energy consumed during high tariff periods</small>
+                    </div>
+                    <div class="form-col">
+                        <label for="{{ form.total_consumption_low_tariff.id }}">{{ form.total_consumption_low_tariff.label }}</label>
+                        {{ form.total_consumption_low_tariff(class="form-control", placeholder="sensor.electricity_used_tariff_2") }}
+                        <small>Energy consumed during low tariff periods</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Energy Injection to Grid -->
+            <div class="form-section">
+                <h4>Total Energy Injection (to Grid)</h4>
+                <p class="section-description">Cumulative energy injected/delivered to the grid by tariff rate</p>
+                <div class="form-row">
+                    <div class="form-col">
+                        <label for="{{ form.total_injection_high_tariff.id }}">{{ form.total_injection_high_tariff.label }}</label>
+                        {{ form.total_injection_high_tariff(class="form-control", placeholder="sensor.electricity_delivered_tariff_1") }}
+                        <small>Energy injected during high tariff periods</small>
+                    </div>
+                    <div class="form-col">
+                        <label for="{{ form.total_injection_low_tariff.id }}">{{ form.total_injection_low_tariff.label }}</label>
+                        {{ form.total_injection_low_tariff(class="form-control", placeholder="sensor.electricity_delivered_tariff_2") }}
+                        <small>Energy injected during low tariff periods</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Power Consumption/Injection (Live) -->
+            <div class="form-section">
+                <h4>Current Power (Live Measurements)</h4>
+                <p class="section-description">Instantaneous power consumption and injection (updates every few seconds)</p>
+                <div class="form-row">
+                    <div class="form-col">
+                        <label for="{{ form.actual_consumption.id }}">{{ form.actual_consumption.label }}</label>
+                        {{ form.actual_consumption(class="form-control", placeholder="sensor.current_electricity_usage") }}
+                        <small>Current power being consumed from grid (in kW)</small>
+                    </div>
+                    <div class="form-col">
+                        <label for="{{ form.actual_injection.id }}">{{ form.actual_injection.label }}</label>
+                        {{ form.actual_injection(class="form-control", placeholder="sensor.current_electricity_delivery") }}
+                        <small>Current power being injected to grid (in kW)</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h4>Energy Usage</h4>
+                <p class="section-description">Usage = energy consumed by your home (from grid + solar production - injection). Can be calculated automatically from solar + grid sensors or set manually.</p>
+                <div class="form-row">
+                    <div class="form-col full">
+                        <label for="{{ form.usage_mode.id }}">{{ form.usage_mode.label }}</label>
+                        {{ form.usage_mode(class="form-control", id="usage_mode") }}
+                        <small>In auto mode, usage is calculated as consumption + production - injection</small>
+                    </div>
+                </div>
+                <div id="manual-usage-fields">
+                    <div class="form-row">
+                        <div class="form-col">
+                            <label for="{{ form.actual_usage.id }}">{{ form.actual_usage.label }}</label>
+                            {{ form.actual_usage(class="form-control", placeholder="sensor.energy_usage_live") }}
+                            <small>Instantaneous power usage in kW</small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-col">
+                            <label for="{{ form.total_usage_high_tariff.id }}">{{ form.total_usage_high_tariff.label }}</label>
+                            {{ form.total_usage_high_tariff(class="form-control", placeholder="sensor.energy_usage_high_tariff") }}
+                            <small>Total energy usage at high tariff (kWh)</small>
+                        </div>
+                        <div class="form-col">
+                            <label for="{{ form.total_usage_low_tariff.id }}">{{ form.total_usage_low_tariff.label }}</label>
+                            {{ form.total_usage_low_tariff(class="form-control", placeholder="sensor.energy_usage_low_tariff") }}
+                            <small>Total energy usage at low tariff (kWh)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                {{ form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+    </section>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var mode = document.getElementById('usage_mode');
+        var fields = document.getElementById('manual-usage-fields');
+        function toggle() { fields.style.display = mode.value === 'manual' ? '' : 'none'; }
+        mode.addEventListener('change', toggle);
+        toggle();
+    });
+</script>
+{% endblock %}

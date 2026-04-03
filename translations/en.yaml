@@ -1,0 +1,7 @@
+configuration:
+  ha_token:
+    name: Home Assistant Token
+    description: >-
+      Long-lived access token for browser-side WebSocket connections to Home Assistant. 
+      Required for live dashboards. Create one in your HA profile under Long-Lived Access Tokens. 
+      Leave empty if you don't need live dashboards.

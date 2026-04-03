@@ -1,0 +1,55 @@
+{% extends "layout.html" %}
+
+{% block title %}Getting Started - GridMate{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings/optimization.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/guides.css') }}">
+
+<div class="page-header">
+    <h2>Getting Started</h2>
+    <p>Set up GridMate to manage your home energy system</p>
+</div>
+
+<div class="settings-container">
+    <section class="card card-full-width explanation-card">
+        <h3>Welcome to GridMate</h3>
+
+        <div class="explanation-section">
+            <h4><i class="fas fa-info-circle"></i> What is GridMate?</h4>
+            <div class="explanation-content">
+                <p>GridMate is a Home Assistant addon that gives you insight into your home energy usage and helps you optimize costs. It connects to your existing Home Assistant sensors and provides dashboards, cost tracking, and optional automated optimization via <a href="https://github.com/davidusb-geek/emhass" target="_blank">EMHASS</a>.</p>
+            </div>
+        </div>
+
+        <div class="explanation-section">
+            <h4><i class="fas fa-list-ol"></i> Setup Order</h4>
+            <div class="explanation-content">
+                <p>Follow these guides in order to configure GridMate:</p>
+                <ol class="guide-steps">
+                    <li>
+                        <a href="{{ url_for('guides.energy_feed') }}">Energy Feed</a>
+                        <span class="step-desc">&mdash; Connect your smart meter sensors (required)</span>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('guides.solar_panels') }}">Solar Panels</a>
+                        <span class="step-desc">&mdash; Add solar production and forecast sensors (if applicable)</span>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('guides.devices') }}">Devices</a>
+                        <span class="step-desc">&mdash; Register smart devices for monitoring and automation, including your home battery</span>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('guides.energy_contract') }}">Energy Contract</a>
+                        <span class="step-desc">&mdash; Model your energy pricing for cost calculations</span>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('guides.optimization') }}">Optimization</a>
+                        <span class="step-desc">&mdash; Set up EMHASS for automated energy optimization (optional)</span>
+                    </li>
+                </ol>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

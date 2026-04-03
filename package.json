@@ -1,0 +1,19 @@
+{
+  "name": "gridmate",
+  "version": "1.0.0",
+  "description": "Home energy management system with Home Assistant at its heart.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "AGPL-3.0",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.1.0"
+  }
+}

@@ -1,0 +1,324 @@
+.device-dashboard-card {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    cursor: pointer;
+}
+
+.device-dashboard-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.device-dashboard-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--color-border);
+}
+
+.device-dashboard-icon {
+    font-size: 2rem;
+    color: var(--color-primary);
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 217, 126, 0.08);
+    border-radius: var(--radius-md);
+    flex-shrink: 0;
+}
+
+.device-dashboard-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.device-dashboard-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.device-dashboard-type {
+    font-size: 0.85rem;
+    color: var(--color-text-light);
+}
+
+.device-dashboard-secondary {
+    font-size: 0.75rem;
+    color: var(--color-primary);
+    font-weight: 500;
+}
+
+.device-dashboard-params {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.device-param-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.25rem 0;
+}
+
+.device-param-label {
+    font-size: 0.85rem;
+    color: var(--color-text-light);
+}
+
+.device-param-label.empty-param {
+    font-style: italic;
+}
+
+.device-param-value {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.device-param-more {
+    font-size: 0.8rem;
+    color: var(--color-primary);
+    font-weight: 500;
+}
+
+.detail-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-size: 0.9rem;
+    color: var(--color-text-light);
+    font-weight: 500;
+}
+
+.detail-value {
+    font-size: 0.9rem;
+    color: var(--color-text);
+    font-weight: 500;
+}
+
+.detail-value.empty-param {
+    color: var(--color-text-light);
+    font-style: italic;
+}
+
+.hierarchy-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.hierarchy-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-left: 3px solid var(--color-border);
+    font-size: 0.9rem;
+    color: var(--color-text-light);
+}
+
+.hierarchy-item i {
+    color: var(--color-primary);
+    width: 20px;
+    text-align: center;
+}
+
+.hierarchy-item.hierarchy-current {
+    border-left-color: var(--color-primary);
+    color: var(--color-text);
+    font-weight: 600;
+    background: rgba(0, 217, 126, 0.05);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.type-badge-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.type-badge-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-left: 3px solid var(--color-primary);
+    font-size: 0.9rem;
+    color: var(--color-text);
+    background: rgba(0, 217, 126, 0.05);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.type-badge-item i {
+    color: var(--color-primary);
+    width: 20px;
+    text-align: center;
+}
+
+.page-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+}
+
+.entity-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.entity-state-loading .entity-state-value {
+    color: var(--color-text-light);
+    font-style: italic;
+    animation: entity-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes entity-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
+.entity-state-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background-color: var(--color-text-light);
+}
+
+.indicator-active {
+    background-color: var(--color-success);
+    box-shadow: 0 0 4px rgba(0, 217, 126, 0.4);
+}
+
+.indicator-unavailable {
+    background-color: var(--color-text-light);
+}
+
+.indicator-error {
+    background-color: var(--color-danger);
+}
+
+.entity-state-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.entity-state-value.entity-sensor {
+    color: var(--color-text);
+}
+
+.entity-state-value.entity-on {
+    color: var(--color-success);
+}
+
+.entity-state-value.entity-off {
+    color: var(--color-text-light);
+}
+
+.entity-state-value.entity-unavailable {
+    color: var(--color-text-light);
+    font-style: italic;
+    font-weight: 400;
+}
+
+.entity-state-compact {
+    font-size: 0.8rem;
+}
+
+.entity-state-compact .entity-state-indicator {
+    width: 6px;
+    height: 6px;
+}
+
+.entity-id-ref {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--color-text-light);
+    margin-top: 0.15rem;
+    font-family: monospace;
+    opacity: 0.7;
+}
+
+.params-table .device-header,
+.params-table .device-row {
+    grid-template-columns: 1fr 1fr;
+}
+
+.col-param-name {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.col-param-value {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+@media (max-width: 768px) {
+    .detail-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+
+    .detail-value {
+        word-break: break-all;
+    }
+
+    .entity-id-ref {
+        word-break: break-all;
+    }
+
+    .params-table .device-header,
+    .params-table .device-row {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+
+    .page-actions {
+        flex-direction: column;
+    }
+
+    .page-actions .btn {
+        width: 100%;
+    }
+
+    .device-dashboard-header {
+        flex-wrap: wrap;
+    }
+
+    .device-dashboard-name {
+        white-space: normal;
+    }
+}

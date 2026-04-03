@@ -1,0 +1,429 @@
+{% extends "layout.html" %}
+
+{% block title %}Energy Costs Dashboard - GridMate{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/costs.css') }}">
+<div class="page-header">
+    <h2>Energy Costs Dashboard</h2>
+</div>
+
+<!-- Time Period Selection -->
+<div class="dashboard-grid">
+    <section class="card card-full-width">
+        <div class="period-navigation">
+            <div class="period-display">
+                {% if period_type == 'month' %}
+                    <h3>{{ current_month_name }} {{ year }}</h3>
+                {% else %}
+                    <h3>Year {{ year }}</h3>
+                {% endif %}
+            </div>
+            
+            <div class="nav-buttons">
+                {% if period_type == 'month' and prev_month and prev_year %}
+                    <a href="{{ url_for('dashboard.energy_costs', period_type='month', month=prev_month, year=prev_year) }}" class="btn btn-secondary">
+                        <i class="fas fa-chevron-left"></i> Previous Month
+                    </a>
+                {% elif period_type == 'year' %}
+                    <a href="{{ url_for('dashboard.energy_costs', period_type='year', year=prev_year) }}" class="btn btn-secondary">
+                        <i class="fas fa-chevron-left"></i> Previous Year
+                    </a>
+                {% endif %}
+            </div>
+            
+            <div class="nav-buttons">
+                {% if period_type == 'month' and next_month and next_year %}
+                    <a href="{{ url_for('dashboard.energy_costs', period_type='month', month=next_month, year=next_year) }}" class="btn btn-secondary">
+                        Next Month <i class="fas fa-chevron-right"></i>
+                    </a>
+                {% elif period_type == 'year' %}
+                    <a href="{{ url_for('dashboard.energy_costs', period_type='year', year=next_year) }}" class="btn btn-secondary">
+                        Next Year <i class="fas fa-chevron-right"></i>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        <form method="GET" class="period-selection-form">
+            <div class="form-group-inline">
+                <div class="form-group">
+                    <label for="period_type">Period:</label>
+                    {{ form.period_type(class="form-control", id="period_type", onchange="updatePeriodFields()") }}
+                </div>
+                
+                <div class="form-group" id="month-selector" {% if period_type != 'month' %}style="display:none;"{% endif %}>
+                    <label for="month">Month:</label>
+                    {{ form.month(class="form-control", id="month") }}
+                </div>
+                
+                <div class="form-group">
+                    <label for="year">Year:</label>
+                    {{ form.year(class="form-control", id="year", min="2000", max="2100") }}
+                </div>
+                
+                {{ form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+    </section>
+</div>
+
+<!-- Cost Breakdown Section -->
+{% if has_contract %}
+<div class="dashboard-grid">
+    <section class="card card-full-width">
+        <h3><i class="fas fa-chart-bar"></i> Summary</h3>
+        <div class="cost-summary-bar">
+            <div class="cost-summary-total">
+                <span class="cost-summary-amount">{{ "%.2f"|format(total_cost) }}€</span>
+                <span class="cost-summary-period">estimated cost this {{ cost_summary.period }}</span>
+            </div>
+            <div class="cost-summary-metrics">
+                {% if meter_readings.total_consumption > 0 %}
+                <div class="cost-summary-metric">
+                    <span class="cost-summary-metric-value">{{ "%.3f"|format(total_cost / meter_readings.total_consumption) }}€/kWh</span>
+                    <span class="cost-summary-metric-label">cost per kWh</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+            <div class="meter-metrics-grid">
+                <div class="peak-power-card consumption-card">
+                    <i class="fas fa-arrow-down consumption-icon"></i>
+                    <div class="peak-power-info">
+                        <span class="peak-power-label">Total Consumption</span>
+                        <span class="peak-power-value consumption-value">{{ meter_readings.total_consumption }} kWh</span>
+                    </div>
+                </div>
+
+                <div class="peak-power-card injection-card">
+                    <i class="fas fa-arrow-up injection-icon"></i>
+                    <div class="peak-power-info">
+                        <span class="peak-power-label">Total Injection</span>
+                        <span class="peak-power-value injection-value">{{ meter_readings.total_injection }} kWh</span>
+                    </div>
+                </div>
+
+                <div class="peak-power-card">
+                    <i class="fas fa-bolt peak-power-icon"></i>
+                    <div class="peak-power-info">
+                        <span class="peak-power-label">Peak 15-min Mean Power</span>
+                        <span class="peak-power-value">{{ meter_readings.max_power_kw }} kW ({{ meter_readings.max_power_timestamp }})</span>
+                    </div>
+                </div>
+            </div>
+    </section>
+    <section class="card card-full-width">
+        <h3><i class="fas fa-chart-pie"></i> Cost Breakdown</h3>
+        
+        {% if breakdowns %}
+            <div class="cost-breakdown-details" style="overflow-x: auto;">
+                <table class="breakdown-table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Component</th>
+                            <th>Cost</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for breakdown in breakdowns %}
+                        <tr class="breakdown-row">
+                            <td><span class="badge badge-{{ breakdown.component_type|lower }}">{{ breakdown.component_type_label }}</span></td>
+                            <td>{{ breakdown.component_name }}</td>
+                            <td>
+                                <span class="cost-value">
+                                    {{ "%.2f"|format(breakdown.cost) }}€
+                                </span>
+                            </td>
+                            <td>{{ breakdown.details }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="breakdown-total">
+                            <td colspan="2"><strong>Total</strong></td>
+                            <td colspan="2"><strong class="total-amount">{{ "%.2f"|format(total_cost) }}€</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            
+            <div class="chart-container" style="height: 300px;">
+                <h4>Cost by Component</h4>
+                <canvas id="costDistributionChart"></canvas>
+            </div>
+        {% else %}
+            <div class="info-box">
+                <i class="fas fa-info-circle"></i>
+                <p>No cost breakdown available. Add components to your energy contract.</p>
+            </div>
+        {% endif %}
+    </section>
+</div>
+{% endif %}
+
+<!-- Meter Readings Section -->
+<div class="dashboard-grid">
+    <section class="card card-full-width">
+        <h3><i class="fas fa-gauge"></i> Meter Readings</h3>
+        
+        {% if has_contract %}
+            <div class="meter-readings-table-container">
+                <table class="meter-readings-table">
+                    <thead>
+                        <tr>
+                            <th>Meter</th>
+                            <th>Start of Period</th>
+                            <th>End of Period</th>
+                            <th>Difference</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Consumption High Tariff</td>
+                            <td>{{ meter_readings.consumption_high_start }} kWh</td>
+                            <td>{{ meter_readings.consumption_high_end }} kWh</td>
+                            <td>{{ meter_readings.consumption_high_tariff }} kWh</td>
+                        </tr>
+                        <tr>
+                            <td>Consumption Low Tariff</td>
+                            <td>{{ meter_readings.consumption_low_start }} kWh</td>
+                            <td>{{ meter_readings.consumption_low_end }} kWh</td>
+                            <td>{{ meter_readings.consumption_low_tariff }} kWh</td>
+                        </tr>
+                        <tr class="row-total">
+                            <td>Total Consumption</td>
+                            <td>{{ "%.2f"|format(meter_readings.consumption_high_start + meter_readings.consumption_low_start) }} kWh</td>
+                            <td>{{ "%.2f"|format(meter_readings.consumption_high_end + meter_readings.consumption_low_end) }} kWh</td>
+                            <td>{{ meter_readings.total_consumption }} kWh</td>
+                        </tr>
+                        <tr>
+                            <td>Injection High Tariff</td>
+                            <td>{{ meter_readings.injection_high_start }} kWh</td>
+                            <td>{{ meter_readings.injection_high_end }} kWh</td>
+                            <td>{{ meter_readings.injection_high_tariff }} kWh</td>
+                        </tr>
+                        <tr>
+                            <td>Injection Low Tariff</td>
+                            <td>{{ meter_readings.injection_low_start }} kWh</td>
+                            <td>{{ meter_readings.injection_low_end }} kWh</td>
+                            <td>{{ meter_readings.injection_low_tariff }} kWh</td>
+                        </tr>
+                        <tr class="row-total">
+                            <td>Total Injection</td>
+                            <td>{{ "%.2f"|format(meter_readings.injection_high_start + meter_readings.injection_low_start) }} kWh</td>
+                            <td>{{ "%.2f"|format(meter_readings.injection_high_end + meter_readings.injection_low_end) }} kWh</td>
+                            <td>{{ meter_readings.total_injection }} kWh</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+
+            <div class="chart-container" style="height: 320px;">
+                <h4>Energy Consumption</h4>
+                <canvas id="energyEvolutionChart"></canvas>
+            </div>
+
+            <div class="chart-container" style="height: 300px; margin-top: 1rem;">
+                <h4>Peak Power</h4>
+                <canvas id="powerEvolutionChart"></canvas>
+            </div>
+        {% else %}
+            <div class="warning-box">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>No energy contract configured. Please <a href="{{ url_for('settings_energy.energy_contract') }}">configure your energy contract</a> to view cost analysis.</p>
+            </div>
+        {% endif %}
+    </section>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updatePeriodFields() {
+    const periodType = document.getElementById('period_type').value;
+    const monthSelector = document.getElementById('month-selector');
+    
+    if (periodType === 'month') {
+        monthSelector.style.display = 'block';
+    } else {
+        monthSelector.style.display = 'none';
+    }
+}
+
+updatePeriodFields();
+
+const meterReadings = {{ meter_readings | tojson }};
+const costSummary = {{ cost_summary | tojson }};
+const breakdowns = {{ breakdowns | tojson }};
+const dailyEvolution = {{ daily_evolution | tojson }};
+
+const colorMap = {
+    'ConstantComponent': { bg: 'rgba(0, 217, 126, 0.7)', border: 'rgb(0, 217, 126)' },
+    'FixedComponent': { bg: 'rgba(30, 144, 255, 0.7)', border: 'rgb(30, 144, 255)' },
+    'VariableComponent': { bg: 'rgba(255, 200, 0, 0.7)', border: 'rgb(255, 200, 0)' },
+    'CapacityComponent': { bg: 'rgba(255, 107, 107, 0.7)', border: 'rgb(255, 107, 107)' },
+    'PercentageComponent': { bg: 'rgba(100, 100, 100, 0.7)', border: 'rgb(100, 100, 100)' },
+};
+const defaultColor = { bg: 'rgba(100, 100, 100, 0.7)', border: 'rgb(100, 100, 100)' };
+
+const energy_evolution_ctx = document.getElementById('energyEvolutionChart');
+if (energy_evolution_ctx && dailyEvolution.length > 0) {
+    const labels = dailyEvolution.map(d => d.date.slice(5));
+    new Chart(energy_evolution_ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Consumption High',
+                    data: dailyEvolution.map(d => d.consumption_high),
+                    borderColor: 'rgb(255, 140, 66)',
+                    backgroundColor: 'rgba(255, 140, 66, 0.7)',
+                    borderWidth: 1,
+                    stack: 'energy',
+                    yAxisID: 'y',
+                    barPercentage: 0.6,
+                },
+                {
+                    label: 'Consumption Low',
+                    data: dailyEvolution.map(d => d.consumption_low),
+                    borderColor: 'rgb(255, 180, 120)',
+                    backgroundColor: 'rgba(255, 180, 120, 0.7)',
+                    borderWidth: 1,
+                    stack: 'energy',
+                    yAxisID: 'y',
+                    barPercentage: 0.6,
+                },
+                {
+                    label: 'Injection High',
+                    data: dailyEvolution.map(d => -d.injection_high),
+                    borderColor: 'rgb(0, 217, 126)',
+                    backgroundColor: 'rgba(0, 217, 126, 0.7)',
+                    borderWidth: 1,
+                    stack: 'energy',
+                    yAxisID: 'y',
+                    barPercentage: 0.6,
+                },
+                {
+                    label: 'Injection Low',
+                    data: dailyEvolution.map(d => -d.injection_low),
+                    borderColor: 'rgb(130, 240, 190)',
+                    backgroundColor: 'rgba(130, 240, 190, 0.7)',
+                    borderWidth: 1,
+                    stack: 'energy',
+                    yAxisID: 'y',
+                    barPercentage: 0.6,
+                },
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15, font: { size: 11 } } },
+            },
+            scales: {
+                y: {
+                    position: 'left',
+                    title: { display: true, text: 'Energy (kWh)', font: { size: 11 } },
+                    beginAtZero: true,
+                    stacked: true,
+                },
+            }
+        }
+    });
+}
+
+const power_evolution_ctx = document.getElementById('powerEvolutionChart');
+if (power_evolution_ctx && dailyEvolution.length > 0) {
+    const labels = dailyEvolution.map(d => d.date.slice(5));
+    new Chart(power_evolution_ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Peak Power',
+                    data: dailyEvolution.map(d => d.max_power),
+                    backgroundColor: 'rgba(255, 71, 87, 0.7)',
+                    borderColor: 'rgb(255, 71, 87)',
+                    borderWidth: 1,
+                    borderRadius: 3,
+                    barPercentage: 0.6,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15, font: { size: 11 } } },
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Peak Power (kW)', font: { size: 11 } },
+                }
+            }
+        }
+    });
+}
+
+const costCtx = document.getElementById('costDistributionChart');
+if (costCtx && breakdowns.length > 0) {
+    const sortedBreakdowns = [...breakdowns].sort((a, b) => b.cost - a.cost);
+    const names = sortedBreakdowns.map(b => b.component_name);
+    const costs = sortedBreakdowns.map(b => b.cost);
+    const bgColors = sortedBreakdowns.map(b => (colorMap[b.component_type] || defaultColor).bg);
+    const borderColors = sortedBreakdowns.map(b => (colorMap[b.component_type] || defaultColor).border);
+
+    new Chart(costCtx, {
+        type: 'bar',
+        data: {
+            labels: names,
+            datasets: [{
+                label: 'Cost (€)',
+                data: costs,
+                backgroundColor: bgColors,
+                borderColor: borderColors,
+                borderWidth: 2,
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.formattedValue + '€';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) { return value.toFixed(2) + '€'; }
+                    }
+                },
+                y: {
+                    ticks: { font: { size: 11 } }
+                }
+            }
+        }
+    });
+}
+</script>
+{% endblock %}

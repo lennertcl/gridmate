@@ -1,0 +1,288 @@
+{% extends "layout.html" %}
+
+{% block title %}Energy Contract Configuration - GridMate{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/energy-contract.css') }}">
+<div class="page-header">
+    <h2>Energy Contract Configuration</h2>
+    <p>Configure your energy contract for accurate cost calculation and optimization &mdash; <a href="{{ url_for('guides.energy_contract') }}" class="explanation-link">Go to guide</a></p>
+</div>
+
+<!-- Hidden datalist for sensor selection -->
+<datalist id="sensorList">
+    {% if available_sensors %}
+        {% for sensor in available_sensors %}
+        <option value="{{ sensor.id }}">{{ sensor.label }}</option>
+        {% endfor %}
+    {% endif %}
+    <option value="__custom_sensor__">Custom sensor</option>
+</datalist>
+
+<!-- Store default sensor value for use in JavaScript -->
+<script>
+    window.defaultEnergySensor = '{{ default_energy_sensor }}';
+    window.availableSensors = {{ available_sensors | tojson }};
+    window.contractComponents = {{ contract_components_json | tojson }};
+</script>
+
+{% macro period_suffix(period) -%}
+    {%- if period == 'year' -%}year{%- else -%}month{%- endif -%}
+{%- endmacro %}
+
+{% macro render_detail(label, value) -%}
+<div class="component-detail">
+    <span class="detail-label">{{ label }}</span>
+    <span class="detail-value">{{ value }}</span>
+</div>
+{%- endmacro %}
+
+<div class="card card-full-width">
+        
+        <!-- Components List -->
+        <div class="components-section">
+            <h3>Energy Contract Components</h3>
+
+            <!-- Add Component Section -->
+            <div class="add-component-section">
+                <h3>Add New Component</h3>
+                <div class="component-type-buttons">
+                    <button type="button" class="btn btn-primary" onclick="open_add_component_dialog('constant')">+ Constant</button>
+                    <button type="button" class="btn btn-primary" onclick="open_add_component_dialog('fixed')">+ Fixed</button>
+                    <button type="button" class="btn btn-primary" onclick="open_add_component_dialog('variable')">+ Variable</button>
+                    <button type="button" class="btn btn-primary" onclick="open_add_component_dialog('capacity')">+ Capacity</button>
+                    <button type="button" class="btn btn-primary" onclick="open_add_component_dialog('percentage')">+ Percentage</button>
+                </div>
+            </div>
+        
+            
+            {% if contract and contract.components %}
+            <div id="componentsList" class="components-list">
+                {% for component in contract.components %}
+                {% set component_class = component.__class__.__name__ %}
+                {% set component_type = component_class|replace('Component', '') %}
+                <div class="component-card" data-index="{{ loop.index0 }}">
+                    <div class="component-header">
+                        <h4>{{ component.name }}</h4>
+                        <div class="component-meta">
+                            {% if component.multiplier and component.multiplier|round != 1 %}
+                            <span class="meta-pill">× {{ component.multiplier }}</span>
+                            {% endif %}
+                            {% if component_class in ['FixedComponent', 'VariableComponent'] and component.is_injection_reward %}
+                            <span class="badge badge-constantcomponent">Injection reward</span>
+                            {% endif %}
+                            <span class="badge badge-{{ component_class|lower }}">{{ component_type }}</span>
+                        </div>
+                        <div class="component-actions">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick='open_edit_component_dialog({{ loop.index0 }}, "{{ component_class }}", {{ component.to_dict() | tojson }})'>Edit</button>
+                            <form method="POST" style="display:inline;">
+                                {{ constant_form.hidden_tag() }}
+                                <input type="hidden" name="action" value="remove_component">
+                                <input type="hidden" name="index" value="{{ loop.index0 }}">
+                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to remove this component?')">Remove</button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="component-body">
+                        {% if component_class == 'ConstantComponent' %}
+                        {{ render_detail('Price', component.price_constant ~ ' €/'+ period_suffix(component.period)) }}
+
+                        {% elif component_class == 'FixedComponent' %}
+                        {{ render_detail('Price', component.fixed_price ~ ' €/kWh') }}
+                        {{ render_detail('Energy Sensor', component.energy_sensor) }}
+
+                        {% elif component_class == 'VariableComponent' %}
+                        {{ render_detail('Price Sensor', component.variable_price_sensor) }}
+                        {{ render_detail('Price Formula', component.variable_price_multiplier ~ ' × price + ' ~ component.variable_price_constant ~ ' €/kWh') }}
+                        {{ render_detail('Energy Sensor', component.energy_sensor) }}
+
+                        {% elif component_class == 'CapacityComponent' %}
+                        {{ render_detail('Capacity Price', component.capacity_price_multiplier ~ ' €/kW/' ~ period_suffix(component.period)) }}
+
+                        {% elif component_class == 'PercentageComponent' %}
+                        {{ render_detail('Percentage', component.percentage ~ '%') }}
+                        {% set applied_names = [] %}
+                        {% for idx in component.applies_to_indices %}
+                            {% if idx >= 0 and idx < contract.components|length %}
+                                {% if applied_names.append(contract.components[idx].name) %}{% endif %}
+                            {% endif %}
+                        {% endfor %}
+                        {{ render_detail('Applies to', applied_names|join(', ') if applied_names else 'None') }}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="no-components">No contract components configured yet</p>
+            {% endif %}
+        </div>
+        
+        <!-- Add Component Dialog -->
+        <div id="addComponentModal" class="modal" style="display:none">
+            <div class="modal-content">
+                <span class="close" onclick="close_add_component_dialog()">&times;</span>
+                <h3 id="modalTitle">Add New Component</h3>
+                
+                <!-- Constant Component Form -->
+                <div id="constantForm" class="component-form" style="display:none">
+                    <form method="POST">
+                        {{ constant_form.hidden_tag() }}
+                        <input type="hidden" name="action" id="constantAction" value="add_component">
+                        <input type="hidden" name="component_type" value="constant">
+                        <input type="hidden" name="index" id="constantIndex" value="">
+                        <div class="form-row-modal">
+                            <label for="constant_name">Component Name</label>
+                            {{ constant_form.name(class="form-control", id="constant_name", placeholder="e.g., Monthly Fee") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="constant_price_constant">Fixed Price (€/period)</label>
+                            {{ constant_form.price_constant(class="form-control", id="constant_price_constant", step="0.01", min="0") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="constant_period">Period</label>
+                            {{ constant_form.period(class="form-control", id="constant_period") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="constant_multiplier">Multiplier</label>
+                            {{ constant_form.multiplier(class="form-control", id="constant_multiplier", step="0.01", min="0") }}
+                        </div>
+                        <button type="submit" id="constantSubmitButton" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Add Component</button>
+                    </form>
+                </div>
+                
+                <!-- Fixed Component Form -->
+                <div id="fixedForm" class="component-form" style="display:none">
+                    <form method="POST">
+                        {{ fixed_form.hidden_tag() }}
+                        <input type="hidden" name="action" id="fixedAction" value="add_component">
+                        <input type="hidden" name="component_type" value="fixed">
+                        <input type="hidden" name="index" id="fixedIndex" value="">
+                        <div class="form-row-modal">
+                            <label for="fixed_name">Component Name</label>
+                            {{ fixed_form.name(class="form-control", id="fixed_name", placeholder="e.g., Consumption Charge") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="fixed_fixed_price">Price (€/kWh)</label>
+                            {{ fixed_form.fixed_price(class="form-control", id="fixed_fixed_price", step="0.0001", min="0") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="fixed_energy_sensor">Energy Sensor</label>
+                            {{ fixed_form.energy_sensor(class="form-control", id="fixed_energy_sensor", list="sensorList", placeholder="Predefined option or enter HA sensor ID") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="fixed_multiplier">Multiplier</label>
+                            {{ fixed_form.multiplier(class="form-control", id="fixed_multiplier", step="0.01", min="0") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label>
+                                {{ fixed_form.is_injection_reward(id="fixed_is_injection_reward") }}
+                                Is Injection Reward
+                            </label>
+                        </div>
+                        <button type="submit" id="fixedSubmitButton" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Add Component</button>
+                    </form>
+                </div>
+                
+                <!-- Variable Component Form -->
+                <div id="variableForm" class="component-form" style="display:none">
+                    <form method="POST">
+                        {{ variable_form.hidden_tag() }}
+                        <input type="hidden" name="action" id="variableAction" value="add_component">
+                        <input type="hidden" name="component_type" value="variable">
+                        <input type="hidden" name="index" id="variableIndex" value="">
+                        <div class="form-row-modal">
+                            <label for="variable_name">Component Name</label>
+                            {{ variable_form.name(class="form-control", id="variable_name", placeholder="e.g., Dynamic Pricing") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="variable_variable_price_sensor">Price Sensor</label>
+                            {{ variable_form.variable_price_sensor(class="form-control", id="variable_variable_price_sensor", placeholder="e.g., sensor.electricity_price") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="variable_variable_price_multiplier">Price Multiplier</label>
+                            {{ variable_form.variable_price_multiplier(class="form-control", id="variable_variable_price_multiplier", step="0.01") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="variable_variable_price_constant">Price Constant (€/kWh)</label>
+                            {{ variable_form.variable_price_constant(class="form-control", id="variable_variable_price_constant", step="0.0001") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="variable_energy_sensor">Energy Sensor</label>
+                            {{ variable_form.energy_sensor(class="form-control", id="variable_energy_sensor", list="sensorList", placeholder="Predefined option or enter HA sensor ID") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="variable_multiplier">Multiplier</label>
+                            {{ variable_form.multiplier(class="form-control", id="variable_multiplier", step="0.01", min="0") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label>
+                                {{ variable_form.is_injection_reward(id="variable_is_injection_reward") }}
+                                Is Injection Reward
+                            </label>
+                        </div>
+                        <button type="submit" id="variableSubmitButton" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Add Component</button>
+                    </form>
+                </div>
+                
+                <!-- Capacity Component Form -->
+                <div id="capacityForm" class="component-form" style="display:none">
+                    <form method="POST">
+                        {{ capacity_form.hidden_tag() }}
+                        <input type="hidden" name="action" id="capacityAction" value="add_component">
+                        <input type="hidden" name="component_type" value="capacity">
+                        <input type="hidden" name="index" id="capacityIndex" value="">
+                        <div class="form-row-modal">
+                            <label for="capacity_name">Component Name</label>
+                            {{ capacity_form.name(class="form-control", id="capacity_name", placeholder="e.g., Capacity Charge") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="capacity_capacity_price_multiplier">Capacity Tariff Price (€/kW)</label>
+                            {{ capacity_form.capacity_price_multiplier(class="form-control", id="capacity_capacity_price_multiplier", step="0.01", min="0") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="capacity_period">Period</label>
+                            {{ capacity_form.period(class="form-control", id="capacity_period") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="capacity_multiplier">Multiplier</label>
+                            {{ capacity_form.multiplier(class="form-control", id="capacity_multiplier", step="0.01", min="0") }}
+                        </div>
+                        <p class="help-text">Based on monthly maximum average power over 15-minute windows</p>
+                        <button type="submit" id="capacitySubmitButton" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Add Component</button>
+                    </form>
+                </div>
+
+                <!-- Percentage Component Form -->
+                <div id="percentageForm" class="component-form" style="display:none">
+                    <form method="POST">
+                        {{ percentage_form.hidden_tag() }}
+                        <input type="hidden" name="action" id="percentageAction" value="add_component">
+                        <input type="hidden" name="component_type" value="percentage">
+                        <input type="hidden" name="index" id="percentageIndex" value="">
+                        <div class="form-row-modal">
+                            <label for="percentage_name">Component Name</label>
+                            {{ percentage_form.name(class="form-control", id="percentage_name", placeholder="e.g., VAT") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="percentage_percentage">Percentage (%)</label>
+                            {{ percentage_form.percentage(class="form-control", id="percentage_percentage", step="0.01", min="0") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="percentage_multiplier">Multiplier</label>
+                            {{ percentage_form.multiplier(class="form-control", id="percentage_multiplier", step="0.01", min="0") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label>Applies to components</label>
+                            <div id="percentageAppliesTo" class="applies-to-checkboxes"></div>
+                        </div>
+                        <button type="submit" id="percentageSubmitButton" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Add Component</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/energy-contract.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+
+{% block title %}Solar Panels Guide - GridMate{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings/optimization.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/guides.css') }}">
+
+<div class="page-header">
+    <h2>Solar Panels Guide</h2>
+    <p>How to configure solar production and forecast sensors &mdash; <a href="{{ url_for('settings_device.solar_panels') }}" class="explanation-link">Go to configuration</a></p>
+</div>
+
+<div class="settings-container">
+    <section class="card card-full-width explanation-card">
+        <h3>Field Explanations</h3>
+
+        <div class="explanation-section">
+            <h4><i class="fas fa-sun"></i> Solar Panel Sensors</h4>
+            <div class="explanation-content">
+                <p>These sensors come from your solar inverter integration in Home Assistant.</p>
+                <dl>
+                    <dt>Actual Production</dt>
+                    <dd>Instantaneous power output of your solar panels in kW. This is the primary sensor used for live dashboards and auto-calculated usage.</dd>
+                    <dt>Energy Production Today</dt>
+                    <dd>Cumulative solar energy produced today in kWh. Resets at midnight.</dd>
+                    <dt>Energy Production Lifetime</dt>
+                    <dd>Total cumulative solar energy produced over the system's lifetime in kWh. </dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="explanation-section">
+            <h4><i class="fas fa-cloud-sun"></i> Solar Estimation Sensors</h4>
+            <div class="explanation-content">
+                <p>Forecast sensors provide predicted solar production. Recommended integrations are Solcast or Forecast.solar. </p>
+                <dl>
+                    <dt>Estimated Actual Production</dt>
+                    <dd>Predicted power output right now (kW). 
+                    <dt>Estimated Energy Production Today</dt>
+                    <dd>Total predicted production for today (kWh).</dd>
+                    <dt>Estimated Remaining Today</dt>
+                    <dd>Predicted remaining production until end of day (kWh).</dd>
+                    <dt>Estimated This Hour / Next Hour</dt>
+                    <dd>Predicted production for the current and next hour (kWh).
+                    <dt>Estimated Tomorrow / Next Day</dt>
+                    <dd>Predicted values for 24 hours from now. 
+                </dl>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

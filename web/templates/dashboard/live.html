@@ -1,0 +1,98 @@
+{% extends "layout.html" %}
+
+{% block title %}Real-time Energy Insights - GridMate{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/live.css') }}">
+<div class="page-header live-page-header">
+    <h2>Real-time Energy Insights</h2>
+    <div class="range-selector">
+        <button class="btn btn-sm btn-icon" id="range-back" title="Back 2 hours">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        <div class="range-inputs">
+            <div class="range-field">
+                <label class="range-label" for="range-start">From</label>
+                <input type="datetime-local" id="range-start" class="range-input">
+            </div>
+            <div class="range-field">
+                <label class="range-label" for="range-end">To</label>
+                <input type="datetime-local" id="range-end" class="range-input">
+            </div>
+        </div>
+        <button class="btn btn-sm btn-icon" id="range-forward" title="Forward 2 hours">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+        <span class="live-indicator active" id="live-indicator">
+            <span class="live-dot"></span>LIVE
+        </span>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <section class="card card-full-width">
+        <h3>Live data</h3>
+        <div class="sensor-status">
+            <div class="sensor-item sensor-item-usage">
+                <span class="badge badge-usage-light">
+                    <i class="fas fa-bolt sensor-icon"></i>
+                </span>
+                <span class="sensor-name">&nbsp;Usage</span>
+                <span class="sensor-value" id="val-usage">-- kW</span>
+            </div>
+            <div class="sensor-item sensor-item-production">
+                <span class="badge badge-production-light">
+                    <i class="fas fa-solar-panel sensor-icon"></i>
+                </span>
+                <span class="sensor-name">&nbsp;Production</span>
+                <span class="sensor-value" id="val-production">-- kW</span>
+            </div>
+            <div class="sensor-item sensor-item-consumption">
+                <span class="badge badge-consumption-light">
+                    <i class="fas fa-circle-down sensor-icon"></i>
+                </span>
+                <span class="sensor-name">&nbsp;Consumption</span>
+                <span class="sensor-value" id="val-consumption">-- kW</span>
+            </div>
+            <div class="sensor-item sensor-item-injection">
+                <span class="badge badge-injection-light">
+                    <i class="fas fa-circle-up sensor-icon"></i>
+                </span>
+                <span class="sensor-name">&nbsp;Injection</span>
+                <span class="sensor-value" id="val-injection">-- kW</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="card card-full-width">
+        <h3>Grid Interaction (Live)</h3>
+        <div class="chart-container" style="height: 400px;">
+            <canvas id="consumptionChart"></canvas>
+        </div>
+    </section>
+
+    <section class="card card-full-width">
+        <h3>Energy Usage (Live)</h3>
+        <div class="chart-container" style="height: 400px;">
+            <canvas id="energyChart"></canvas>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.HA_CONFIG = {
+        sensors: {
+            consumption: "{{ actual_consumption_sensor }}",
+            injection: "{{ actual_injection_sensor }}",
+            usage: "{{ actual_usage_sensor }}",
+            production: "{{ actual_production_sensor }}"
+        },
+        usage_mode: "{{ usage_mode }}"
+    };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/live-charts.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/live-dashboard.js') }}"></script>
+{% endblock %}

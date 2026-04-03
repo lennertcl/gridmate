@@ -1,0 +1,166 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ device.name }} - Battery Dashboard - GridMate{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>
+        <i class="fas fa-car-battery"></i>
+        {{ device.name }}
+    </h2>
+</div>
+
+<div class="dashboard-grid battery-grid">
+    <section class="card card-full-width battery-hero-card">
+        <div class="battery-hero">
+            <div class="battery-hero-gauge">
+                <svg class="battery-gauge-ring" viewBox="0 0 200 200">
+                    <circle class="gauge-track" cx="100" cy="100" r="85" />
+                    <circle class="gauge-fill" cx="100" cy="100" r="85"
+                            stroke-dasharray="534"
+                            stroke-dashoffset="534"
+                            id="gauge-fill" />
+                </svg>
+                <div class="battery-hero-center">
+                    <span class="battery-hero-percent" id="battery-level">--</span>
+                    <span class="battery-hero-unit">%</span>
+                </div>
+            </div>
+            <div class="battery-hero-stats">
+                <div class="battery-stat">
+                    <i class="fas fa-bolt"></i>
+                    <div class="battery-stat-content">
+                        <span class="battery-stat-value" id="battery-power">--</span>
+                        <span class="battery-stat-label">Current Power</span>
+                    </div>
+                </div>
+                <div class="battery-stat">
+                    <i class="fas fa-battery-full"></i>
+                    <div class="battery-stat-content">
+                        <span class="battery-stat-value" id="battery-stored">--</span>
+                        <span class="battery-stat-label">Stored Energy</span>
+                    </div>
+                </div>
+                <div class="battery-stat">
+                    <i class="fas fa-arrows-up-down"></i>
+                    <div class="battery-stat-content">
+                        <span class="battery-stat-value" id="battery-status-text">--</span>
+                        <span class="battery-stat-label">Status</span>
+                    </div>
+                </div>
+                <div class="battery-stat">
+                    <i class="fas fa-database"></i>
+                    <div class="battery-stat-content">
+                        <span class="battery-stat-value">{{ capacity_kwh }} kWh</span>
+                        <span class="battery-stat-label">Max Capacity</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card battery-charge-rate-card">
+        <h3><i class="fas fa-gauge-high"></i> Charge Rate</h3>
+        {% if max_charge_power or max_discharge_power %}
+        <div class="charge-rate-container">
+            <div class="charge-rate-bar-wrapper">
+                <div class="charge-rate-indicator" id="charge-rate-indicator">
+                    <span class="charge-rate-indicator-value" id="charge-rate-value"></span>
+                </div>
+                <div class="charge-rate-track">
+                    <div class="charge-rate-half charge-rate-half-left">
+                        <div class="charge-rate-fill charge-rate-fill-discharge" id="discharge-fill"></div>
+                    </div>
+                    <div class="charge-rate-divider"></div>
+                    <div class="charge-rate-half charge-rate-half-right">
+                        <div class="charge-rate-fill charge-rate-fill-charge" id="charge-fill"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="charge-rate-labels">
+                {% if max_discharge_power %}
+                <span class="charge-rate-limit-value">{{ max_discharge_power }} kW</span>
+                {% else %}
+                <span class="charge-rate-limit-value"></span>
+                {% endif %}
+                <span class="charge-rate-center-label">0</span>
+                {% if max_charge_power %}
+                <span class="charge-rate-limit-value">{{ max_charge_power }} kW</span>
+                {% else %}
+                <span class="charge-rate-limit-value"></span>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <p class="empty-state">No power limits configured.</p>
+        {% endif %}
+    </section>
+
+    <section class="card battery-energy-card">
+        <h3><i class="fas fa-battery-three-quarters"></i> Lifetime Energy Saved</h3>
+        <div class="energy-stored-display">
+            <span class="energy-stored-value" id="cumulative-energy-stored">--</span>
+            <span class="energy-stored-unit">kWh</span>
+        </div>
+        <span class="energy-stored-sublabel" id="cumulative-energy-subtext"></span>
+    </section>
+
+    {% if mode_select_entity %}
+    <section class="card battery-mode-card">
+        <h3><i class="fas fa-sliders"></i> Battery Mode</h3>
+        <div class="battery-mode-control">
+            <div class="battery-mode-current">
+                <span class="battery-mode-label">Current Mode</span>
+                <span class="battery-mode-value" id="battery-mode-value">···</span>
+            </div>
+            <div class="battery-mode-selector">
+                <select id="battery-mode-select" class="battery-mode-dropdown" disabled>
+                    <option value="">Loading...</option>
+                </select>
+                <button id="battery-mode-apply" class="btn btn-primary btn-sm" disabled>
+                    <i class="fas fa-check"></i> Apply
+                </button>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    <div class="card-full-width battery-history-row">
+        <section class="card battery-history-card">
+            <h3><i class="fas fa-chart-area"></i> Battery Level (24h)</h3>
+            <div class="chart-container">
+                <canvas id="battery-level-chart"></canvas>
+            </div>
+        </section>
+        <section class="card battery-history-card">
+            <h3><i class="fas fa-chart-bar"></i> Charge & Discharge (24h)</h3>
+            <div class="chart-container">
+                <canvas id="battery-power-chart"></canvas>
+            </div>
+        </section>
+    </div>
+</div>
+
+<div class="page-actions">
+    <a href="{{ url_for('dashboard.devices') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back to Devices</a>
+    <a href="{{ url_for('settings_device.edit_device', device_id=device.device_id) }}" class="btn btn-primary"><i class="fas fa-pencil"></i> Edit Device</a>
+</div>
+
+<script>
+    window.BATTERY_CONFIG = {
+        device_id: {{ device.device_id | tojson }},
+        battery_level_sensor: {{ battery_level_sensor | tojson }},
+        power_sensor: {{ power_sensor | tojson }},
+        capacity_kwh: {{ capacity_kwh | tojson }},
+        max_charge_power: {{ max_charge_power | tojson }},
+        max_discharge_power: {{ max_discharge_power | tojson }},
+        mode_select_entity: {{ mode_select_entity | tojson }},
+        energy_sensor: {{ energy_sensor | tojson }},
+    };
+</script>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/home-battery.css') }}">
+<script type="module" src="{{ url_for('static', filename='js/home-battery-dashboard.js') }}"></script>
+{% endblock %}

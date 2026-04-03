@@ -1,0 +1,99 @@
+.emhass-connection-status {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--color-border);
+    transition: var(--transition);
+}
+
+.status-dot.connected {
+    background: var(--color-primary);
+    box-shadow: 0 0 6px rgba(0, 217, 126, 0.4);
+}
+
+.status-dot.disconnected {
+    background: var(--color-danger);
+    box-shadow: 0 0 6px rgba(220, 53, 69, 0.4);
+}
+
+.status-text {
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.schedule-block-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.schedule-block-row .form-control {
+    width: auto;
+}
+
+.schedule-block-row .block-start,
+.schedule-block-row .block-end {
+    width: 130px;
+}
+
+.schedule-block-row .block-power {
+    width: 100px;
+}
+
+.block-separator {
+    color: var(--color-text-light);
+    font-weight: 500;
+}
+
+.block-unit {
+    font-size: 0.85rem;
+    color: var(--color-text-light);
+    font-weight: 500;
+}
+
+.btn-remove-block {
+    padding: 0.25rem 0.5rem;
+}
+
+.emhass-config-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.config-preview {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    font-size: 0.8rem;
+    max-height: 400px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+@media (max-width: 768px) {
+    .schedule-block-row {
+        flex-wrap: wrap;
+    }
+
+    .schedule-block-row .block-start,
+    .schedule-block-row .block-end {
+        width: 100px;
+    }
+}

@@ -1,0 +1,114 @@
+{% extends "layout.html" %}
+
+{% block title %}Edit Device - GridMate{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Edit Device</h2>
+    <p>Update configuration for {{ device.name }}</p>
+</div>
+
+<div class="settings-container">
+    <section class="card card-full-width">
+        <h3><i class="fas fa-pencil"></i> Device Configuration</h3>
+        <form method="POST" novalidate>
+            {{ form.hidden_tag() }}
+
+            <div class="form-row">
+                <div class="form-col">
+                    <label for="{{ form.device_name.id }}">{{ form.device_name.label }}</label>
+                    {{ form.device_name(class="form-control") }}
+                    {% if form.device_name.errors %}
+                        <small class="error">{{ form.device_name.errors[0] }}</small>
+                    {% endif %}
+                </div>
+                <div class="form-col">
+                    <label for="{{ form.primary_type.id }}">{{ form.primary_type.label }}</label>
+                    {{ form.primary_type(class="form-control", id="primary-type-select") }}
+                    {% if form.primary_type.errors %}
+                        <small class="error">{{ form.primary_type.errors[0] }}</small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <h4>Secondary Types</h4>
+            <p class="form-section-desc">Select additional capabilities for this device</p>
+            <div class="type-selection" id="secondary-types-container">
+                {% for tid, dt in type_registry.items() %}
+                <label class="checkbox-label secondary-type-option" data-type-id="{{ tid }}">
+                    <input type="checkbox" name="secondary_types" value="{{ tid }}" {% if tid in device.secondary_types %}checked{% endif %}>
+                    <i class="{{ dt.icon }}"></i> {{ dt.name }}
+                </label>
+                {% endfor %}
+            </div>
+
+            <div id="custom-parameters-container">
+                {% for param_name, param_def in all_params.items() %}
+                <div class="form-row">
+                    <div class="form-col">
+                        {% if param_def.param_type == 'bool' %}
+                        <label for="param_{{ param_name }}">
+                            {{ param_def.label }}
+                            {% if param_def.required %}<span class="param-required">*</span>{% endif %}
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox"
+                                   id="param_{{ param_name }}"
+                                   name="param_{{ param_name }}"
+                                   {% if device.custom_parameters.get(param_name, param_def.default_value) %}checked{% endif %}>
+                        </label>
+                        {% if param_def.description %}
+                        <small class="form-help">{{ param_def.description }}</small>
+                        {% endif %}
+                        {% elif param_def.param_type == 'time' %}
+                        <label for="param_{{ param_name }}">
+                            {{ param_def.label }}
+                            {% if param_def.required %}<span class="param-required">*</span>{% endif %}
+                        </label>
+                        <input type="time"
+                               id="param_{{ param_name }}"
+                               name="param_{{ param_name }}"
+                               class="form-control"
+                               value="{{ device.custom_parameters.get(param_name, '') }}"
+                               {% if param_def.required %}required{% endif %}>
+                        {% if param_def.description %}
+                        <small class="form-help">{{ param_def.description }}</small>
+                        {% endif %}
+                        {% else %}
+                        <label for="param_{{ param_name }}">
+                            {{ param_def.label }}
+                            {% if param_def.unit %}<span class="param-unit">({{ param_def.unit }})</span>{% endif %}
+                            {% if param_def.required %}<span class="param-required">*</span>{% endif %}
+                        </label>
+                        <input type="text"
+                               id="param_{{ param_name }}"
+                               name="param_{{ param_name }}"
+                               class="form-control"
+                               value="{{ device.custom_parameters.get(param_name, '') }}"
+                               placeholder="{{ param_def.placeholder }}"
+                               {% if param_def.required %}required{% endif %}>
+                        {% if param_def.description %}
+                        <small class="form-help">{{ param_def.description }}</small>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="form-actions">
+                {{ form.submit(class="btn btn-primary") }}
+                <a href="{{ url_for('settings_device.devices') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    var existingParams = {{ device.custom_parameters | tojson }};
+    var existingSecondaryTypes = {{ device.secondary_types | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/device-form.js') }}"></script>
+{% endblock %}
