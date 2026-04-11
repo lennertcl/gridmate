@@ -161,7 +161,7 @@ Builds `load_cost_forecast` (buy price) and `prod_price_forecast` (sell price) f
 Orchestrates the full optimization run:
 - Delegates to EmhassConnector for optimization execution (the connector handles SOC reading and result publishing internally)
 - Stores results via OptimizationResultStore
-- Handles post-optimization actuation (automatic device control or notifications)
+- Handles post-optimization actuation (automatic device control via HA automations)
 
 ## Frontend
 

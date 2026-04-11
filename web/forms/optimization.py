@@ -23,7 +23,6 @@ class OptimizationSettingsForm(FlaskForm):
         'Actuation Mode',
         choices=[
             ('manual', 'Manual — show schedule only'),
-            ('notify', 'Notify — send HA notifications'),
             ('automatic', 'Automatic — control devices directly'),
         ],
     )

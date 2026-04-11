@@ -8,6 +8,7 @@ from web.forms.optimization import OptimizationSettingsForm
 from web.model.data.data_connector import DataConnector
 from web.model.data.ha_connector import HAConnector
 from web.model.optimization.emhass_connector import EmhassConnector, resolve_emhass_url
+from web.model.optimization.ha_automation_manager import HAAutomationManager
 from web.model.optimization.models import LoadPowerConfig, LoadPowerScheduleBlock
 from web.model.optimization.optimization_manager import OptimizationManager
 
@@ -48,6 +49,17 @@ def optimization_settings():
 
         optimization_manager.save_config(config)
         optimization_manager.sync_config_to_emhass(config)
+
+        ha_connector = HAConnector()
+        automation_manager = HAAutomationManager(ha_connector, data_connector)
+
+        if config.enabled:
+            automation_manager.ensure_trigger_automation(config)
+            if config.actuation_mode != 'automatic':
+                automation_manager.cleanup_device_automations()
+        else:
+            automation_manager.cleanup_all_automations()
+
         flash('Optimization settings saved successfully!', 'success')
         return redirect(url_for('settings_optimization.optimization_settings'))
 

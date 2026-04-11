@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -200,6 +201,17 @@ class EmhassConnector(OptimizerConnector):
             end_indices = []
             for load in deferrable_loads:
                 s, e = self._compute_load_time_window(load, now, time_step, num_steps)
+                if e > 0:
+                    needed_steps = math.ceil(load.operating_duration_hours * 60 / time_step)
+                    available_steps = e - s
+                    if available_steps < needed_steps:
+                        logger.warning(
+                            'Load %s: window too small (%d steps available, %d needed). Relaxing to unconstrained.',
+                            load.device_id,
+                            available_steps,
+                            needed_steps,
+                        )
+                        s, e = 0, 0
                 start_indices.append(s)
                 end_indices.append(e)
             params['start_timesteps_of_each_deferrable_load'] = start_indices

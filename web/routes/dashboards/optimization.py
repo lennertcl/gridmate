@@ -88,7 +88,7 @@ def run_optimization():
     connector = EmhassConnector(emhass_url, ha_connector, data_connector)
     scheduler = OptimizationScheduler(connector, ha_connector)
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     force_type = data.get('type')
     logger.debug('Optimization run request: %s', data)
 

@@ -32,7 +32,7 @@ All routes are registered under the `guides` blueprint.
 | `/guides/home-battery` | GET | `home_battery` | Home battery configuration field explanations |
 | `/guides/devices` | GET | `devices` | Device type system, all device types and their parameters, deferrable load detail |
 | `/guides/energy-contract` | GET | `energy_contract` | Contract component types and examples |
-| `/guides/optimization` | GET | `optimization` | EMHASS optimization prerequisites and field explanations |
+| `/guides/optimization` | GET | `optimization` | EMHASS optimization prerequisites and field explanations. Auto-detects the GridMate addon hostname via `HAConnector.get_addon_hostname()` for the `rest_command` URL snippet. |
 
 ## Frontend
 

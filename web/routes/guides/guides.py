@@ -1,5 +1,7 @@
 from flask import Blueprint, render_template
 
+from web.model.data.ha_connector import HAConnector
+
 guides_bp = Blueprint('guides', __name__)
 
 
@@ -30,4 +32,7 @@ def energy_contract():
 
 @guides_bp.route('/guides/optimization')
 def optimization():
-    return render_template('guides/optimization.html')
+    ha = HAConnector()
+    addon_hostname = ha.get_addon_hostname()
+    addon_url = f'http://{addon_hostname}:8000'
+    return render_template('guides/optimization.html', addon_url=addon_url)

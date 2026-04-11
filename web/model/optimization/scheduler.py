@@ -1,8 +1,10 @@
 import logging
 from datetime import datetime
 
+from web.model.data.data_connector import DataConnector
 from web.model.data.ha_connector import HAConnector
 from web.model.optimization.connector import OptimizerConnector
+from web.model.optimization.ha_automation_manager import HAAutomationManager
 from web.model.optimization.models import (
     OptimizationConfig,
     OptimizationResult,
@@ -52,8 +54,6 @@ class OptimizationScheduler:
 
         if config.actuation_mode == 'automatic':
             self._actuate_devices(result)
-        elif config.actuation_mode == 'notify':
-            self._send_notifications(result)
 
         config.last_optimization_run = datetime.now()
         config.last_optimization_status = 'success'
@@ -61,46 +61,10 @@ class OptimizationScheduler:
         return result
 
     def _actuate_devices(self, result: OptimizationResult) -> None:
-        now = datetime.now()
-        for device_id, schedule in result.device_schedules.items():
-            should_be_on = False
-            for entry in schedule.schedule_entries:
-                if entry.start_time <= now <= entry.end_time and entry.is_active:
-                    should_be_on = True
-                    break
-
-            self._control_device(device_id, should_be_on)
-
-    def _control_device(self, device_id: str, turn_on: bool) -> None:
-        from web.model.data.data_connector import DataConnector
-
         data_connector = DataConnector()
-        device = data_connector.get_device(device_id)
-
-        if not device:
-            logger.warning(f'Device {device_id} not found for actuation')
-            return
-
-        control_entity = device.custom_parameters.get('control_entity', '')
-        if not control_entity:
-            logger.warning(f'Device {device_id} has no control_entity')
-            return
-
+        automation_manager = HAAutomationManager(self.ha, data_connector)
         try:
-            domain = control_entity.split('.')[0]
-            service = 'turn_on' if turn_on else 'turn_off'
-            self.ha.call_service(domain, service, {'entity_id': control_entity})
+            automation_manager.sync_device_automations(result)
+            logger.info('Device automations synced to Home Assistant')
         except Exception as e:
-            logger.error(f'Failed to actuate {device_id}: {e}')
-
-    def _send_notifications(self, result: OptimizationResult) -> None:
-        now = datetime.now()
-        for device_id, schedule in result.device_schedules.items():
-            for entry in schedule.schedule_entries:
-                if entry.is_active and entry.start_time > now:
-                    minutes_until = int((entry.start_time - now).total_seconds() / 60)
-                    if minutes_until <= 30:
-                        logger.info(
-                            f'Notification: {schedule.device_name} scheduled to start '
-                            f'at {entry.start_time.strftime("%H:%M")}'
-                        )
+            logger.error(f'Failed to sync device automations: {e}')

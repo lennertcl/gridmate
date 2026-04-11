@@ -23,6 +23,7 @@ Field explanations for all settings are available in the [Optimization guide](..
 - [emhass_connector.py](../../../web/model/optimization/emhass_connector.py) — EMHASS REST API connector
 - [cost_forecast.py](../../../web/model/optimization/cost_forecast.py) — Price forecast generation from EnergyContract
 - [scheduler.py](../../../web/model/optimization/scheduler.py) — Optimization run orchestrator
+- [ha_automation_manager.py](../../../web/model/optimization/ha_automation_manager.py) — HA automation CRUD for device actuation
 - [result_store.py](../../../web/model/optimization/result_store.py) — Optimization result persistence
 - [config_validator.py](../../../web/model/optimization/config_validator.py) — EMHASS config consistency validation
 - [optimization_manager.py](../../../web/model/optimization/optimization_manager.py) — High-level optimization config/operations manager
@@ -45,7 +46,7 @@ Stored under `optimization_config` in `settings.json`.
 | dayahead_schedule_time | str | 05:30 | HH:MM time to run day-ahead optimization |
 | max_grid_import_w | int | 9000 | Grid import power limit in watts |
 | max_grid_export_w | int | 9000 | Grid export power limit in watts |
-| actuation_mode | str | manual | manual, notify, or automatic |
+| actuation_mode | str | manual | manual or automatic |
 | load_power_config | LoadPowerConfig | (default) | Non-deferrable load configuration |
 | last_optimization_run | datetime | null | Timestamp of last optimization run |
 | last_optimization_status | str | '' | Status of last optimization run |
@@ -108,9 +109,23 @@ High-level manager wrapping DataConnector for optimization operations.
 Orchestrates a single optimization run.
 
 - `run_scheduled_optimization()` — Assigns deferrable loads, calls connector (defaults to dayahead), actuates devices if configured
-- `_get_current_battery_soc()` — Reads SOC from home_battery devices with opt_enabled=True
-- `_actuate_devices()` — Sends turn_on/turn_off commands to HA based on schedule
-- `_send_notifications()` — Logs upcoming device activations
+- `_actuate_devices()` — In automatic mode, delegates to `HAAutomationManager.sync_device_automations()` to create HA automations for device control
+
+### HAAutomationManager
+
+Manages Home Assistant automations for device actuation via the HA REST API (`/api/config/automation/config/{id}`).
+
+- `ensure_trigger_automation(config)` — Creates/updates a `[gridmate] Daily Optimization` HA automation that calls `rest_command.gridmate_run_optimization` at the configured `dayahead_schedule_time`
+- `remove_trigger_automation()` — Deletes the daily trigger automation
+- `sync_device_automations(result)` — Deletes all existing `[gridmate]` device automations, then creates one automation per device with active schedule entries. Each automation uses time-based triggers and `choose` actions
+- `cleanup_all_automations()` — Removes all `[gridmate]` automations (trigger + device)
+- `cleanup_device_automations()` — Removes only device automations, keeps the trigger
+
+Automation structure per device:
+- **Constant power devices** — All "on" triggers share one `choose` branch (turn_on control_entity), all "off" triggers share another (turn_off)
+- **Variable power devices** — Each "on" trigger gets its own branch with turn_on + `number.set_value` on the `power_control_entity` at the schedule block's power level. All "off" triggers grouped
+
+Automation IDs are deterministic: `gridmate_daily_optimization` for the trigger, `gridmate_device_{device_id}` per device.
 
 ### EmhassConnector
 
@@ -145,7 +160,7 @@ Generates `load_cost_forecast` and `prod_price_forecast` arrays from the user's 
 | dayahead_schedule_time | StringField | Day-ahead run time (HH:MM) |
 | max_grid_import_w | IntegerField | Max grid import in watts |
 | max_grid_export_w | IntegerField | Max grid export in watts |
-| actuation_mode | SelectField | manual / notify / automatic |
+| actuation_mode | SelectField | manual / automatic |
 | load_power_source_type | SelectField | sensor / schedule |
 | load_power_sensor_entity | StringField | HA entity for load sensor |
 
@@ -157,7 +172,7 @@ Schedule blocks are submitted as JSON via a hidden `load_power_schedule_blocks` 
 
 | Method | Path | Handler | Description |
 |---|---|---|---|
-| GET/POST | /settings/optimization | optimization_settings | Settings form page. POST saves config and pushes to EMHASS. |
+| GET/POST | /settings/optimization | optimization_settings | Settings form page. POST saves config, pushes to EMHASS, and manages HA automations (creates trigger automation when enabled, creates device automations only in automatic mode, cleans up when disabled). |
 | GET | /api/optimization/emhass/status | emhass_status | EMHASS health check (accepts `?url=` to test a specific URL) |
 | GET | /api/optimization/emhass/config | emhass_config | Fetch current live EMHASS config |
 | POST | /api/optimization/device/<device_id>/toggle | toggle_device_optimization | Toggle opt_enabled for a device |

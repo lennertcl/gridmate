@@ -41,7 +41,7 @@
             </div>
             <div class="status-item">
                 <span class="status-label">Actuation</span>
-                <span class="badge badge-{{ 'active' if config.actuation_mode == 'automatic' else 'info' if config.actuation_mode == 'notify' else 'secondary' }}">
+                <span class="badge badge-{{ 'active' if config.actuation_mode == 'automatic' else 'secondary' }}">
                     {{ config.actuation_mode | title }}
                 </span>
             </div>

@@ -417,7 +417,7 @@ class OptimizationConfig:
     load_power_sensor: str = ''           # HA entity for total load minus deferrable loads (W)
 
     # Actuation mode
-    actuation_mode: str = 'manual'        # manual / notify / automatic
+    actuation_mode: str = 'manual'        # manual / automatic
     auto_actuate: bool = False            # Deprecated alias for actuation_mode == 'automatic'
 
     # Deferrable loads (ordered list, order = EMHASS index)
@@ -811,8 +811,6 @@ class OptimizationScheduler:
         # Actuate devices based on actuation_mode
         if config.actuation_mode == 'automatic':
             self._actuate_devices(result, config)
-        elif config.actuation_mode == 'notify':
-            self._send_notifications(result, config)
 
         # Update config metadata
         config.last_optimization_run = datetime.now()
@@ -851,9 +849,6 @@ class OptimizationScheduler:
         2. Override precedence — user overrides always take priority
         3. Graceful failure — log errors, continue with other devices, surface on dashboard
         """
-
-    def _send_notifications(self, result: OptimizationResult, config: OptimizationConfig):
-        """Create HA notifications for scheduled device actions without actuating"""
 ```
 
 ### 9.2 Device Actuation Safety
@@ -868,7 +863,6 @@ Before actuating any device, GridMate must check:
 | Mode | Behaviour |
 |---|---|
 | `manual` (default) | GridMate shows the schedule but never actuates devices |
-| `notify` | GridMate creates HA notifications for scheduled actions but doesn't actuate |
 | `automatic` | GridMate directly controls devices via HA entity control |
 
 Default is `manual` to prevent unexpected device control on first setup.
@@ -1026,7 +1020,7 @@ If EMHASS exposes its current config via API, GridMate reads it for validation. 
    - Info box explaining the `sensor_power_load_no_var_loads` requirement
 
 7. **Actuation Mode**
-   - Radio buttons: Manual / Notify / Automatic
+   - Radio buttons: Manual / Automatic
    - Warning text for Automatic mode
 
 8. **Advanced** (collapsible)
@@ -1284,7 +1278,6 @@ class OptimizationSettingsForm(FlaskForm):
     # Actuation
     actuation_mode = SelectField('Actuation Mode', choices=[
         ('manual', 'Manual — show schedule only'),
-        ('notify', 'Notify — send HA notifications'),
         ('automatic', 'Automatic — control devices directly'),
     ])
 
@@ -1351,42 +1344,56 @@ def register_blueprints(app):
 
 ## 18. Home Assistant Automation Integration
 
-GridMate does NOT implement its own scheduler daemon. Instead, users create HA automations that call GridMate's API at scheduled times. This keeps the architecture simple and leverages HA's robust scheduling system.
+GridMate manages Home Assistant automations via the HA REST API (`/api/config/automation/config/{id}`) for both daily scheduling and per-device actuation. This is implemented in `web/model/optimization/ha_automation_manager.py`.
+
+### 18.1 Daily Trigger Automation
+
+When optimization is enabled, GridMate creates a `[gridmate] Daily Optimization` automation that calls `rest_command.gridmate_run_optimization` at the configured `dayahead_schedule_time`. This triggers both in manual and automatic modes — manual mode runs the optimization but doesn't create device automations; automatic mode also syncs device automations.
+
+**Prerequisite:** Users must add the following to their HA `configuration.yaml` (one-time setup):
 
 ```yaml
-# Example HA automation: Day-ahead optimization at 05:30
-automation:
-  - alias: "GridMate Day-Ahead Optimization"
-    trigger:
-      - platform: time
-        at: "05:30:00"
-    action:
-      - service: rest_command.gridmate_run_dayahead
-
-  - alias: "GridMate MPC Optimization"
-    trigger:
-      - platform: time_pattern
-        minutes: "/30"
-    action:
-      - service: rest_command.gridmate_run_mpc
-
 rest_command:
-  gridmate_run_dayahead:
-    url: "http://localhost:8000/api/optimization/run"
+  gridmate_run_optimization:
+    url: "http://<addon-hostname>:8000/api/optimization/run"
     method: POST
     content_type: "application/json"
-    payload: '{"type": "dayahead"}'
-
-  gridmate_run_mpc:
-    url: "http://localhost:8000/api/optimization/run"
-    method: POST
-    content_type: "application/json"
-    payload: '{"type": "mpc"}'
+    payload: '{}'
 ```
 
-The setup wizard generates this YAML for users to copy-paste into their HA configuration.
+The addon hostname depends on the installation method (e.g. `local-gridmate` for local installs). GridMate auto-detects the correct hostname and displays the complete `rest_command` snippet in the optimization guide.
 
-**Future consideration:** A background APScheduler thread inside Flask could be revisited if users find HA automation setup burdensome.
+The trigger automation ID is `gridmate_daily_optimization` and is created/updated when saving optimization settings with enabled=True.
+
+### 18.2 Per-Device Automations
+
+After each optimization run in automatic mode, GridMate:
+1. Deletes all existing `[gridmate]` device automations (clean slate)
+2. Creates one automation per device with active schedule entries
+
+Each automation uses:
+- **Time-based triggers** with IDs (`block_{i}_on`, `block_{i}_off`) for each schedule block
+- **Choose action** to map triggers to the correct on/off sequences:
+  - **Constant power devices:** All "on" triggers share one branch (turn_on), all "off" triggers share another (turn_off)
+  - **Variable power devices:** Each "on" trigger gets its own branch with turn_on + `number.set_value` on the `power_control_entity`. All "off" triggers grouped
+
+Automation IDs are deterministic: `gridmate_device_{device_id}`, aliases use `[gridmate] {device_name}`.
+
+### 18.3 Automation Lifecycle
+
+| Event | Action |
+|---|---|
+| Settings saved (enabled=True) | Create/update trigger automation |
+| Settings saved (enabled=True, not automatic) | Create/update trigger + remove device automations |
+| Settings saved (disabled) | Remove all `[gridmate]` automations |
+| Optimization run (automatic mode) | Delete + recreate all device automations |
+
+### 18.4 Identification
+
+All GridMate automations are identified by:
+- Automation ID prefix: `gridmate_` (used in REST API URLs)
+- Alias prefix: `[gridmate]` (visible in HA UI)
+- Description: "Managed by GridMate - do not modify manually"
 
 ---
 
@@ -1605,5 +1612,5 @@ Each component should be testable in isolation:
 | **Runtime Params** | Dynamic parameters passed to EMHASS per API call, overriding base config |
 | **SOC** | State of Charge — battery charge level as fraction (0.0–1.0) |
 | **Shrinking Horizon** | MPC technique where remaining operating hours decrease as loads complete during the day |
-| **Actuation Mode** | How GridMate handles scheduled device control (manual/notify/automatic) |
+| **Actuation Mode** | How GridMate handles scheduled device control (manual/automatic) |
 | **Capacity Tariff** | A cost component based on peak 15-minute power draw in a billing period |

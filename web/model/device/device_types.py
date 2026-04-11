@@ -241,6 +241,13 @@ class HomeBattery(DeviceType):
                 description='Target state of charge for optimization',
                 placeholder='80',
             ),
+            'power_control_entity': CustomParameterDefinition(
+                name='power_control_entity',
+                label='Power Control Entity',
+                param_type='entity',
+                description='HA number entity to set target charge/discharge power level',
+                placeholder='number.battery_power',
+            ),
         }
 
 
@@ -419,5 +426,12 @@ class DeferrableLoad(DeviceType):
                 default_value=5,
                 description='Determines scheduling order when multiple devices compete for the same cheap time slots. Lower values (1) are scheduled first, higher values (10) last.',
                 placeholder='5',
+            ),
+            'power_control_entity': CustomParameterDefinition(
+                name='power_control_entity',
+                label='Power Control Entity',
+                param_type='entity',
+                description='HA number entity to set the target power when constant power is disabled. Only used when the optimizer varies the power level.',
+                placeholder='number.device_power',
             ),
         }

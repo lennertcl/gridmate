@@ -291,3 +291,135 @@ class HAConnector:
             'end_time': end_time.isoformat(),
         }
         return self._ws_send_and_receive(command)
+
+    # ============================================
+    # Addon Discovery Methods
+    # ============================================
+
+    def get_addon_hostname(self, addon_slug: str = 'gridmate') -> str:
+        supervisor_token = os.environ.get('SUPERVISOR_TOKEN')
+        if not supervisor_token:
+            return self._detect_addon_hostname_via_ha(addon_slug)
+
+        headers = {'Authorization': f'Bearer {supervisor_token}'}
+        try:
+            resp = requests.get(
+                'http://supervisor/addons/self/info',
+                headers=headers,
+                timeout=10,
+            )
+            resp.raise_for_status()
+            hostname = resp.json().get('data', {}).get('hostname', '')
+            if hostname:
+                return hostname
+        except requests.RequestException as e:
+            logger.debug('Could not fetch own addon info from supervisor: %s', e)
+
+        return self._detect_addon_hostname_via_ha(addon_slug)
+
+    def _detect_addon_hostname_via_ha(self, addon_slug: str) -> str:
+        try:
+            ws_url = self._ws_url
+            import json as _json
+
+            from websockets.sync.client import connect as _ws_connect
+
+            with _ws_connect(ws_url) as ws:
+                msg = _json.loads(ws.recv())
+                ws.send(_json.dumps({'type': 'auth', 'access_token': self.token}))
+                msg = _json.loads(ws.recv())
+                if msg.get('type') != 'auth_ok':
+                    return addon_slug
+
+                ws.send(
+                    _json.dumps(
+                        {
+                            'id': 1,
+                            'type': 'supervisor/api',
+                            'endpoint': '/addons',
+                            'method': 'get',
+                        }
+                    )
+                )
+                resp = _json.loads(ws.recv())
+                if not resp.get('success'):
+                    return addon_slug
+
+                addons = resp.get('result', {}).get('data', resp.get('result', {})).get('addons', [])
+                for addon in addons:
+                    slug = addon.get('slug', '')
+                    if slug.endswith(f'_{addon_slug}') or slug == addon_slug:
+                        return slug.replace('_', '-')
+        except Exception as e:
+            logger.debug('Could not detect addon hostname via websocket: %s', e)
+
+        return addon_slug
+
+    # ============================================
+    # Service & Automation API Methods
+    # ============================================
+
+    def call_service(self, domain: str, service: str, service_data: Optional[Dict] = None) -> bool:
+        try:
+            response = requests.post(
+                f'{self.ha_url}/api/services/{domain}/{service}',
+                headers=self._headers,
+                json=service_data or {},
+                timeout=10,
+            )
+            if response.status_code == 200:
+                return True
+            logger.warning(f'Failed to call service {domain}.{service}: {response.status_code}')
+            return False
+        except requests.RequestException as e:
+            logger.error(f'Error calling service {domain}.{service}: {e}')
+            return False
+
+    def create_or_update_automation(self, automation_id: str, config: Dict) -> bool:
+        try:
+            response = requests.post(
+                f'{self.ha_url}/api/config/automation/config/{automation_id}',
+                headers=self._headers,
+                json=config,
+                timeout=10,
+            )
+            if response.status_code == 200:
+                logger.info(f'Created/updated automation: {automation_id}')
+                return True
+            logger.warning(
+                f'Failed to create/update automation {automation_id}: {response.status_code} {response.text}'
+            )
+            return False
+        except requests.RequestException as e:
+            logger.error(f'Error creating/updating automation {automation_id}: {e}')
+            return False
+
+    def delete_automation(self, automation_id: str) -> bool:
+        try:
+            response = requests.delete(
+                f'{self.ha_url}/api/config/automation/config/{automation_id}',
+                headers=self._headers,
+                timeout=10,
+            )
+            if response.status_code == 200:
+                logger.info(f'Deleted automation: {automation_id}')
+                return True
+            logger.warning(f'Failed to delete automation {automation_id}: {response.status_code}')
+            return False
+        except requests.RequestException as e:
+            logger.error(f'Error deleting automation {automation_id}: {e}')
+            return False
+
+    def get_automations(self) -> List[Dict]:
+        try:
+            response = requests.get(f'{self.ha_url}/api/states', headers=self._headers, timeout=10)
+            if response.status_code == 200:
+                return [s for s in response.json() if s.get('entity_id', '').startswith('automation.')]
+            logger.warning(f'Failed to get automations: {response.status_code}')
+            return []
+        except requests.RequestException as e:
+            logger.error(f'Error fetching automations: {e}')
+            return []
+
+    def reload_automations(self) -> bool:
+        return self.call_service('automation', 'reload')
