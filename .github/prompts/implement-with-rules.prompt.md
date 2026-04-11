@@ -5,6 +5,7 @@
 - Unless there's a good technical reason, all imports should be at the top of the file, not inside functions or classes 
 - Prefer .env and .env.local variables for configuration over constants in the code for development setup related stuff
 - ALWAYS run `./run-checks.sh` after making changes and address all reported issues before considering the task complete
+- Prefer asking the user using 'vscode_askQuestions' over making assumptions when requirements are unclear. 
 
 ### Architecture
 - This Python Flask application is a deployed as a Home Assistant addon running as a Docker container. Follow best practices for this scenario. 
@@ -20,6 +21,7 @@
 The application builds on top of Home Assistant and several integrations. When implementing features, maximally reuse what these integrations already provide and do not reinvent the wheel.
 ALWAYS use relevant skills when interacting with these tools: 
 - [Home Assistant skill](../skills/home-assistant.md)
+- [Chart.js skill](../skills/chartjs.md)
 - [EMHASS skill](../skills/emhass.md)
 
 
@@ -54,3 +56,4 @@ updated when implementing new features or changing existing features. User guide
 - Avoid complex JS processing that should be done by the backend. JS may only be used for charts, realtime websocket updating pages with HA data, visual effects (limited)
 - Prefer Flask WTForms and standard form POST over JavaScript fetch/AJAX for simple form submissions. Only use JS POST logic when there is a clear technical reason (e.g. real-time updates, complex multi-step interactions).
 - Use the [frontend-design skill](../skills/frontend-design.md) for all frontend design decisions.
+- Use the [Chart.js skill](../skills/chartjs.md) when creating or modifying chart datasets, axes, gap handling, tooltips, or live dashboard chart behavior.
