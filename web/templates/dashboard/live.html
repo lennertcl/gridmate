@@ -38,28 +38,40 @@
                     <i class="fas fa-bolt sensor-icon"></i>
                 </span>
                 <span class="sensor-name">&nbsp;Usage</span>
-                <span class="sensor-value" id="val-usage">-- kW</span>
+                <div class="sensor-copy">
+                    <span class="sensor-value" id="val-usage">-- kW</span>
+                    <span class="sensor-energy" id="energy-usage">-- kWh</span>
+                </div>
             </div>
             <div class="sensor-item sensor-item-production">
                 <span class="badge badge-production-light">
                     <i class="fas fa-solar-panel sensor-icon"></i>
                 </span>
                 <span class="sensor-name">&nbsp;Production</span>
-                <span class="sensor-value" id="val-production">-- kW</span>
+                <div class="sensor-copy">
+                    <span class="sensor-value" id="val-production">-- kW</span>
+                    <span class="sensor-energy" id="energy-production">-- kWh</span>
+                </div>
             </div>
             <div class="sensor-item sensor-item-consumption">
                 <span class="badge badge-consumption-light">
                     <i class="fas fa-circle-down sensor-icon"></i>
                 </span>
                 <span class="sensor-name">&nbsp;Consumption</span>
-                <span class="sensor-value" id="val-consumption">-- kW</span>
+                <div class="sensor-copy">
+                    <span class="sensor-value" id="val-consumption">-- kW</span>
+                    <span class="sensor-energy" id="energy-consumption">-- kWh</span>
+                </div>
             </div>
             <div class="sensor-item sensor-item-injection">
                 <span class="badge badge-injection-light">
                     <i class="fas fa-circle-up sensor-icon"></i>
                 </span>
                 <span class="sensor-name">&nbsp;Injection</span>
-                <span class="sensor-value" id="val-injection">-- kW</span>
+                <div class="sensor-copy">
+                    <span class="sensor-value" id="val-injection">-- kW</span>
+                    <span class="sensor-energy" id="energy-injection">-- kWh</span>
+                </div>
             </div>
         </div>
     </section>
@@ -75,6 +87,58 @@
         <h3>Energy Usage (Live)</h3>
         <div class="chart-container" style="height: 400px;">
             <canvas id="energyChart"></canvas>
+        </div>
+    </section>
+
+    <section class="card card-full-width">
+        <h3>Today's Use</h3>
+        <div class="today-grid">
+            <div class="today-main">
+                <div class="today-hero">
+                    <span class="badge badge-usage-light">
+                        <i class="fas fa-bolt sensor-icon"></i>
+                    </span>
+                    <div class="today-hero-copy">
+                        <span class="today-hero-label">Total usage</span>
+                        <span class="today-hero-value" id="today-total-used">-- kWh</span>
+                    </div>
+                </div>
+                <div class="today-breakdown">
+                    <div class="today-breakdown-row">
+                        <span class="today-breakdown-marker today-marker-import"></span>
+                        <span class="sensor-name">Imported</span>
+                        <span class="today-breakdown-value" id="today-grid-import">-- kWh</span>
+                    </div>
+                    <div class="today-breakdown-row">
+                        <span class="today-breakdown-marker today-marker-self"></span>
+                        <span class="sensor-name">Self consumed</span>
+                        <span class="today-breakdown-value" id="today-direct-solar">-- kWh</span>
+                    </div>
+                </div>
+            </div>
+            <div class="today-details">
+                <div class="today-tile today-tile-export">
+                    <span class="badge badge-injection-light">
+                        <i class="fas fa-circle-up sensor-icon"></i>
+                    </span>
+                    <span class="sensor-name">Injected</span>
+                    <span class="today-tile-value" id="today-grid-export">-- kWh</span>
+                </div>
+                <div class="today-tile today-tile-self-sufficiency">
+                    <span class="badge badge-production-light">
+                        <i class="fas fa-sun sensor-icon"></i>
+                    </span>
+                    <span class="sensor-name">Self-sufficiency</span>
+                    <span class="today-tile-value" id="today-self-sufficiency">--%</span>
+                </div>
+                <div class="today-tile today-tile-net-grid">
+                    <span class="badge badge-consumption-light">
+                        <i class="fas fa-arrows-up-down sensor-icon"></i>
+                    </span>
+                    <span class="sensor-name">Net grid</span>
+                    <span class="today-tile-value" id="today-net-grid-balance">-- kWh</span>
+                </div>
+            </div>
         </div>
     </section>
 </div>

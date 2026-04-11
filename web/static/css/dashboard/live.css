@@ -138,6 +138,185 @@
     animation: live_pulse 2s ease-in-out infinite;
 }
 
+/* ----- Live data sensor cards ----- */
+.sensor-status {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+}
+
+.sensor-status .sensor-item {
+    box-shadow: var(--shadow-sm);
+}
+
+.sensor-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+    margin-left: auto;
+    text-align: right;
+}
+
+.sensor-value {
+    margin-left: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.sensor-energy {
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-text-light);
+    line-height: 1;
+}
+
+/* ----- Today's Use ----- */
+.today-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    align-items: stretch;
+}
+
+.today-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.25rem;
+    border-radius: var(--radius-md);
+    border: 2px solid var(--color-usage);
+    background: linear-gradient(135deg, rgba(30, 144, 255, 0.05) 0%, var(--color-bg) 100%);
+}
+
+.today-hero {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.today-hero-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    flex: 1;
+}
+
+.today-hero-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-light);
+    line-height: 1;
+}
+
+.today-hero-value {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-text);
+}
+
+.today-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border-top: 1px solid var(--color-border);
+    padding-top: 0.75rem;
+}
+
+.today-breakdown-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+}
+
+.today-breakdown-row + .today-breakdown-row {
+    border-top: 1px solid var(--color-border);
+}
+
+.today-breakdown-marker {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.today-marker-import {
+    background: var(--color-consumption);
+}
+
+.today-marker-self {
+    background: var(--color-injection);
+}
+
+.today-breakdown-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-light);
+    flex: 1;
+}
+
+.today-breakdown-value {
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-text);
+    text-align: right;
+}
+
+.today-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.today-tile {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    border-radius: var(--radius-md);
+    border: 2px solid var(--color-border);
+    background-color: var(--color-bg);
+    flex: 1;
+}
+
+.today-tile-export {
+    border-color: var(--color-injection);
+    background: linear-gradient(135deg, rgba(0, 217, 126, 0.05) 0%, var(--color-bg) 100%);
+}
+
+.today-tile-self-sufficiency {
+    border-color: var(--color-production);
+    background: linear-gradient(135deg, rgba(235, 231, 48, 0.05) 0%, var(--color-bg) 100%);
+}
+
+.today-tile-net-grid {
+    border-color: var(--color-consumption);
+    background: linear-gradient(135deg, rgba(255, 140, 66, 0.05) 0%, var(--color-bg) 100%);
+}
+
+.today-tile-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-light);
+    flex: 1;
+}
+
+.today-tile-value {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-text);
+    text-align: right;
+}
+
 @keyframes live_pulse {
     0%, 100% { opacity: 1; box-shadow: 0 0 4px rgba(0, 217, 126, 0.4); }
     50% { opacity: 0.5; box-shadow: 0 0 8px rgba(0, 217, 126, 0.8); }
@@ -167,5 +346,25 @@
 
     .range-input {
         width: 100%;
+    }
+
+    .sensor-status {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .sensor-value {
+        font-size: 1rem;
+    }
+
+    .today-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .today-hero-value {
+        font-size: 1.25rem;
+    }
+
+    .today-tile-value {
+        font-size: 1rem;
     }
 }

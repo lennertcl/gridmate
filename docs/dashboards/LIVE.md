@@ -4,6 +4,8 @@
 
 The live energy dashboard provides real-time monitoring of energy usage, production, consumption from grid, and injection to grid. It connects to Home Assistant via WebSocket for live entity updates and renders two time-series charts alongside current sensor values. Users can select a custom date/time range using start and end pickers, and shift the window forward or backward by 2 hours. Charts only update with real-time data when the selected end time is near "now" (within 3 minutes), indicated by a pulsing LIVE badge. When viewing a historical window, only the sensor value cards update — the charts remain static.
 
+Each live data card now also shows a cumulative kWh total for the currently selected range, derived in the frontend from the same history points used to draw the charts. The page also ends with a compact “Today’s Use” section that highlights total usage, the imported versus self-consumed split, injected energy, and net grid balance from midnight until now.
+
 ## Relevant Artefacts
 
 - [live.html](../../web/templates/dashboard/live.html) — Dashboard template
@@ -52,22 +54,43 @@ Default range on page load is the last 2 hours (realtime mode active). Changing 
 
 ### Live Data Cards
 
-Four sensor cards showing current values for Usage, Production, Consumption, and Injection. Each card has a colored badge circle around its icon matching the sensor's color theme. Updated in real time via WebSocket entity subscription.
+Four sensor cards in a single row show current values for Usage, Production, Consumption, and Injection. Each card uses the standard `sensor-item` styling from `main.css` with the category badge icon and name on the left, and a right-aligned stack of the live power reading (kW) and cumulative kWh total for the selected range. Updated in real time via WebSocket entity subscription.
+
+The kWh totals reflect the currently selected range and are computed from the chart history points so the summary stays aligned with what the user sees.
 
 ### Grid Interaction Chart
 
-Line chart showing Consumption (positive, orange) and Injection (negative, green) with zero values nullified to avoid flat lines at zero. Uses Chart.js with a time x-axis.
+Line chart showing Consumption (positive, orange) and Injection (negative, green) with a time x-axis.
+
+The chart intentionally inserts `null` points whenever a series is inactive or the opposite series becomes active. This ensures Chart.js breaks the line instead of connecting two non-adjacent consumption or injection points across a period where the home was interacting with the grid in the opposite direction. The datasets also enable point rendering only for real data points, not for null gaps.
 
 ### Energy Usage Chart
 
 Line chart showing total Usage (blue) and Production (yellow). Same time x-axis and real-time update behavior.
 
+### Today’s Use Section
+
+A two-panel layout summarizes today from midnight to now:
+
+**Left panel — Total usage card** (usage-colored border, large hero value):
+- Hero value showing total energy consumed by the home
+- Two breakdown rows below a divider: Imported (orange dot) and Self consumed (green dot)
+
+**Right panel — Three detail tiles** stacked vertically, each styled like a `sensor-item` with badge icon, label, and right-aligned value:
+- **Injected** (injection color) — surplus energy exported to the grid
+- **Self-sufficiency** (production color) — percentage of total usage covered by direct solar (`direct_solar / total_used × 100`)
+- **Net grid** (consumption color) — net balance between injection and consumption, prefixed with `+` or `-`
+
+Energy values are fetched via HA’s `recorder/statistics_during_period` WebSocket API with 5-minute aggregation, which gives properly averaged power per bucket. Each bucket’s mean power is multiplied by its duration to compute energy (trapezoidal integration). This avoids the sparse-data problem where sensors with few raw state changes (e.g. solar production at night) would produce wildly inaccurate results if integrated from raw history. Live sensor updates are appended after the last statistics bucket to keep the totals current between fetches.
+
+These values are refreshed from history on page load and range changes, and then kept current with the same live entity subscription used for the cards and charts.
+
 ### JavaScript Architecture
 
 All JS is split into separate files following the project rules:
 
-- **live-charts.js** — Loaded as a regular script. Provides `create_energy_chart()`, `create_consumption_chart()`, `clear_chart()`, `process_history_for_chart()`, and `update_chart_realtime()`. Reusable chart configuration and dataset builders.
-- **live-dashboard.js** — Loaded as an ES module. Handles the HA WebSocket connection lifecycle, range control initialization, history fetching, realtime detection (`is_realtime_window()`), LIVE indicator toggling, and real-time entity subscription updates. Only pushes data to charts when the window is in realtime mode; always updates the sensor value cards. Depends on functions from `live-charts.js`. When `usage_mode` is `'auto'`, computes usage history from consumption, production, and injection history data points using `compute_usage_from_history()`, matching the same formula used for live updates (`max(0, consumption + production − injection)`).
+- **live-charts.js** — Loaded as a regular script. Provides `create_energy_chart()`, `create_consumption_chart()`, `clear_chart()`, `process_history_for_chart()`, `process_activity_history_for_chart()`, and `update_chart_realtime()`. Reusable chart configuration and dataset builders.
+- **live-dashboard.js** — Loaded as an ES module. Handles the HA WebSocket connection lifecycle, range control initialization, history fetching, realtime detection (`is_realtime_window()`), LIVE indicator toggling, and real-time entity subscription updates. Only pushes data to charts when the window is in realtime mode; always updates the sensor value cards. Depends on functions from `live-charts.js`. When `usage_mode` is `'auto'`, computes usage history from consumption, production, and injection history data points using `compute_usage_from_history()`, matching the same formula used for live updates (`max(0, consumption + production − injection)`). It also derives selected-range kWh counters and today-level detail metrics directly from the fetched Chart.js data.
 
 The only inline script in the template injects backend sensor entity IDs into `window.HA_CONFIG`.
 
