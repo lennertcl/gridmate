@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import BooleanField, IntegerField, SelectField, StringField, SubmitField
-from wtforms.validators import DataRequired, NumberRange, Optional
+from wtforms.validators import NumberRange, Optional
 
 
 class OptimizationSettingsForm(FlaskForm):
@@ -38,40 +38,3 @@ class OptimizationSettingsForm(FlaskForm):
     load_power_sensor_entity = StringField('Load Power Sensor Entity')
 
     submit = SubmitField('Save Settings')
-
-
-class EnergyOptimizationForm(FlaskForm):
-    optimization_frequency = SelectField(
-        'Optimization Frequency',
-        validators=[DataRequired()],
-        choices=[
-            ('15', 'Every 15 minutes'),
-            ('30', 'Every 30 minutes'),
-            ('60', 'Hourly'),
-            ('240', 'Every 4 hours'),
-            ('1440', 'Daily'),
-        ],
-    )
-    optimization_horizon = SelectField(
-        'Optimization Horizon',
-        validators=[DataRequired()],
-        choices=[('6', '6 hours ahead'), ('12', '12 hours ahead'), ('24', '24 hours ahead'), ('48', '48 hours ahead')],
-    )
-    goal = SelectField(
-        'Optimization Goal',
-        validators=[DataRequired()],
-        choices=[
-            ('cost', 'Minimize Cost'),
-            ('independence', 'Maximize Independence'),
-            ('carbon', 'Minimize Carbon'),
-            ('balanced', 'Balanced'),
-        ],
-    )
-    max_grid_draw = IntegerField(
-        'Maximum Grid Draw (W)', validators=[DataRequired(), NumberRange(min=0, message='Value cannot be negative')]
-    )
-    max_grid_injection = IntegerField(
-        'Maximum Grid Injection (W)',
-        validators=[DataRequired(), NumberRange(min=0, message='Value cannot be negative')],
-    )
-    submit = SubmitField('Save Optimization Settings')

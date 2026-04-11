@@ -353,9 +353,7 @@ Managed in GridMate:
 
 ---
 
-## 6. Domain Models
 
-The existing `Optimization` dataclass in `web/model/energy/models.py` is replaced with a comprehensive model in `web/model/optimization/models.py`.
 
 ### 6.1 `DeferrableLoadConfig`
 
@@ -1232,7 +1230,7 @@ class OptimizationManager:
 
 ### 15.1 `OptimizationSettingsForm`
 
-Replaces the existing basic `EnergyOptimizationForm` in `web/forms/optimization.py`:
+The optimization settings page uses `OptimizationSettingsForm` in `web/forms/optimization.py`:
 
 ```python
 class OptimizationSettingsForm(FlaskForm):
@@ -1439,7 +1437,6 @@ web/
 
 ```
 web/model/device/device_types.py          # Add deferrable_load device type
-web/model/energy/models.py            # Remove old Optimization class
 web/model/data/data_connector.py      # Add optimization config/result methods
 web/routes/routes.py                  # Register new blueprints
 web/templates/layout.html             # Add navigation entries
@@ -1455,9 +1452,8 @@ data/settings.json                    # Extended optimization section
 2. Implement `OptimizerConnector` ABC and `EmhassConnector`
 3. Add `deferrable_load` device type to defaults
 4. Implement `OptimizationConfig` persistence in `DataConnector`
-5. Remove old `Optimization` class from `web/model/energy/models.py`
-6. Create settings page for optimisation configuration
-7. Implement cost forecast generation from `EnergyContract` (including capacity tariff)
+5. Create settings page for optimisation configuration
+6. Implement cost forecast generation from `EnergyContract` (including capacity tariff)
 
 ### Phase 2: Core Optimization Loop (Estimated: 2-3 weeks)
 1. Implement `OptimizationScheduler` with day-ahead and MPC support (including shrinking horizon tracking)

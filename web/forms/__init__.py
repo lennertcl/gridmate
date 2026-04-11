@@ -8,7 +8,7 @@ from web.forms.contract import (
 from web.forms.data import DataJsonEditForm
 from web.forms.device import AddDeviceForm, EditDeviceForm
 from web.forms.energy import EnergyCostsForm, EnergyFeedConfigForm
-from web.forms.optimization import EnergyOptimizationForm, OptimizationSettingsForm
+from web.forms.optimization import OptimizationSettingsForm
 from web.forms.solar import SolarConfigForm
 
 __all__ = [
@@ -22,7 +22,6 @@ __all__ = [
     'VariableComponentForm',
     'CapacityComponentForm',
     'PercentageComponentForm',
-    'EnergyOptimizationForm',
     'OptimizationSettingsForm',
     'DataJsonEditForm',
 ]

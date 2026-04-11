@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 
 from web.model.device import Device, DeviceType
 from web.model.device.device_type import get_device_type_registry
-from web.model.energy import EnergyContract, EnergyFeed, EnergyPeriodData, Optimization
+from web.model.energy import EnergyContract, EnergyFeed, EnergyPeriodData
 from web.model.energy.models import (
     ENERGY_SENSOR_CONSUMPTION_HIGH_TARIFF,
     ENERGY_SENSOR_CONSUMPTION_LOW_TARIFF,
@@ -283,29 +283,6 @@ class DataConnector:
         """Check if solar is configured"""
         solar = self.get_solar()
         return solar.is_configured
-
-    # ============================================
-    # Optimization Operations
-    # ============================================
-
-    def get_optimization(self) -> Optimization:
-        data = self._load_from_storage()
-        opt_data = data.get('optimization', {})
-        return Optimization.from_dict(opt_data)
-
-    def set_optimization(self, optimization: Optimization) -> None:
-        data = self._load_from_storage()
-        optimization.last_updated = datetime.now()
-        data['optimization'] = optimization.to_dict()
-        self._save_to_storage(data)
-
-    def update_optimization(self, updates: Dict) -> None:
-        optimization = self.get_optimization()
-        for key, value in updates.items():
-            if hasattr(optimization, key):
-                setattr(optimization, key, value)
-        optimization.last_updated = datetime.now()
-        self.set_optimization(optimization)
 
     def get_optimization_config(self) -> OptimizationConfig:
         data = self._load_from_storage()

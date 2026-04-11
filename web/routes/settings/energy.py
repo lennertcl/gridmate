@@ -4,7 +4,6 @@ from web.forms import (
     CapacityComponentForm,
     ConstantComponentForm,
     EnergyFeedConfigForm,
-    EnergyOptimizationForm,
     FixedComponentForm,
     PercentageComponentForm,
     VariableComponentForm,
@@ -232,35 +231,3 @@ def energy_contract():
         capacity_form=capacity_form,
         percentage_form=percentage_form,
     )
-
-
-@settings_energy_bp.route('/settings/energy-optimization', methods=['GET', 'POST'])
-def energy_optimization():
-    """Energy optimization configuration page"""
-    form = EnergyOptimizationForm()
-
-    if form.validate_on_submit():
-        # Save to persistent storage
-        data_connector.update_optimization(
-            {
-                'goal': form.goal.data,
-                'frequency_minutes': form.optimization_frequency.data,
-                'horizon_hours': form.optimization_horizon.data,
-                'max_grid_draw_kw': form.max_grid_draw.data,
-                'max_grid_injection_kw': form.max_grid_injection.data,
-            }
-        )
-
-        flash('Energy optimization configuration saved successfully!', 'success')
-        return redirect(url_for('settings_energy.energy_optimization'))
-
-    # Load existing data into form
-    optimization = data_connector.get_optimization()
-    if optimization and request.method == 'GET':
-        form.goal.data = optimization.get('goal', 'cost')
-        form.optimization_frequency.data = optimization.get('frequency_minutes', 60)
-        form.optimization_horizon.data = optimization.get('horizon_hours', 24)
-        form.max_grid_draw.data = optimization.get('max_grid_draw_kw', 6.0)
-        form.max_grid_injection.data = optimization.get('max_grid_injection_kw', 5.0)
-
-    return render_template('settings/energy/energy-optimization.html', form=form, optimization=optimization)

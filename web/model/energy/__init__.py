@@ -8,7 +8,6 @@ from web.model.energy.models import (
     EnergyFeed,
     EnergyPeriodData,
     FixedComponent,
-    Optimization,
     PercentageComponent,
     VariableComponent,
 )
@@ -16,7 +15,6 @@ from web.model.energy.models import (
 __all__ = [
     'EnergyContract',
     'EnergyFeed',
-    'Optimization',
     'ConstantComponent',
     'FixedComponent',
     'VariableComponent',
