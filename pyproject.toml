@@ -1,3 +1,26 @@
+[build-system]
+requires = ['setuptools>=69', 'wheel']
+build-backend = 'setuptools.build_meta'
+
+[project]
+name = 'gridmate'
+version = '1.0.0'
+description = 'Home energy management system with Home Assistant at its heart.'
+readme = 'README.md'
+requires-python = '>=3.11'
+license = { text = 'AGPL-3.0-only' }
+dynamic = ['dependencies']
+
+[project.scripts]
+gm = 'gridmate_cli.main:main'
+
+[tool.setuptools.dynamic]
+dependencies = { file = ['requirements.txt'] }
+
+[tool.setuptools.packages.find]
+where = ['.']
+include = ['gridmate_cli*', 'web*']
+
 [tool.ruff]
 target-version = "py311"
 line-length = 120

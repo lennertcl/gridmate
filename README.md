@@ -95,6 +95,7 @@ The main prompt [implement-with-rules](.github/prompts/implement-with-rules.prom
 git clone <repo-url> && cd addon
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
+pip install -e .
 
 # Configure environment
 cp .env.example .env

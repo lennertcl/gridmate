@@ -1,6 +1,6 @@
 ---
 name: home-assistant
-description: "Build on top of the Home Assistant ecosystem, api and integrations. Use this skill when the user asks to build anything related to Home Assistant (commonly abbreviated as HA). It points to documentation files to be read for better understanding of how to connect with Home Assistant. 
+description: "Build on top of the Home Assistant ecosystem, api and integrations. Use this skill when the user asks to build anything related to Home Assistant (commonly abbreviated as HA). It points to documentation files to be read for better understanding of how to connect with Home Assistant."
 ---
 
 This skill guides interactions with Home Assistant. The entire application
@@ -50,11 +50,42 @@ const connection = await get_ha_connection();
 subscribeEntities(connection, (entities) => { /* ... */ });
 ```
 
+## MCP-first debugging
+
+When an agent needs to inspect or query Home Assistant during GridMate development, prefer an MCP connection before inventing one-off scripts.
+
+- The workspace-level VS Code configuration lives in `.vscode/mcp.json`.
+- The default setup uses a remote HTTP MCP endpoint and prompts for the full MCP URL plus an access token.
+- This works with Home Assistant's native `mcp_server` integration at `/api/mcp` and also with HTTP-exposed `ha-mcp` deployments.
+- This is the best option for rich agent workflows because it exposes dedicated Home Assistant tools instead of forcing every query through custom shell commands.
+
+There are two valid MCP backends:
+
+- Home Assistant's native `mcp_server` integration exposed from `/api/mcp`.
+- `ha-mcp` from `homeassistant-ai/ha-mcp` when it is exposed through HTTP from an addon, proxy, or remote server.
+
+Fallback order for debugging:
+
+1. Use the configured MCP server in VS Code when the task is exploratory or benefits from HA-specific tools.
+2. Use GridMate's `gm ha ...` commands when you need deterministic JSON output in the terminal or need to script repeatable checks.
+3. Drop to the raw Home Assistant REST or websocket APIs only when the MCP tools or CLI do not cover the required command.
+
+For frontend debugging with real Home Assistant data, use the CLI helpers instead of ad hoc snippets:
+
+- `gm js page-assets --path /dashboard/live`
+- `gm js fixture --path /dashboard/live --entity sensor.some_entity`
+- `gm js state-stream --entity sensor.some_entity --count 10`
+
+These helpers complement the MCP setup: MCP is best for assistant-side querying and broad HA inspection, while `gm` is best for app-specific, JSON-shaped debug workflows tied to GridMate routes and dashboards.
+
 ## Home Assistant documentation
 - Rest API: https://developers.home-assistant.io/docs/api/rest
 - Websocket API: 
   * https://developers.home-assistant.io/docs/api/websocket/
   * https://raw.githubusercontent.com/home-assistant/core/refs/heads/dev/homeassistant/components/history/websocket_api.py
+- MCP:
+  * https://github.com/homeassistant-ai/ha-mcp
+  * https://www.home-assistant.io/integrations/mcp_server/
 - Getting sensor data: 
   * https://www.home-assistant.io/integrations/history/
   * https://www.home-assistant.io/integrations/statistics/

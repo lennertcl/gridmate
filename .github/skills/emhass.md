@@ -38,3 +38,4 @@ When writing code that interacts with EMHASS, ALWAYS CHECK DOCS FIRST from below
 - Forecast data: https://emhass.readthedocs.io/en/latest/forecasts.html
 - Technical background and linear programming formulation: https://emhass.readthedocs.io/en/latest/advanced_math_model.html
 - EMHASS api: https://raw.githubusercontent.com/davidusb-geek/emhass/refs/heads/master/src/emhass/web_server.py
+- EMHASS automations: https://emhass.readthedocs.io/en/latest/automations.html

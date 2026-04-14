@@ -222,4 +222,6 @@ __marimo__/
 
 data/*
 
+.gm/
+
 node_modules/

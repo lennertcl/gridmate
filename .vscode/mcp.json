@@ -1,0 +1,19 @@
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "homeassistant_token",
+      "description": "Home Assistant OAuth access token or long-lived access token",
+      "password": true
+    }
+  ],
+  "servers": {
+    "homeAssistant": {
+      "type": "http",
+      "url": "http://homeassistant.local:8123/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${input:homeassistant_token}"
+      }
+    }
+  }
+}

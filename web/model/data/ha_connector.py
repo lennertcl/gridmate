@@ -50,6 +50,11 @@ class HAConnector:
         url = self.ha_url.replace('http://', 'ws://').replace('https://', 'wss://')
         return f'{url}/api/websocket'
 
+    @property
+    def ws_url(self) -> str:
+        """Expose the resolved Home Assistant WebSocket URL."""
+        return self._ws_url
+
     # ============================================
     # REST API Methods
     # ============================================
@@ -149,6 +154,25 @@ class HAConnector:
         except requests.RequestException as e:
             logger.error(f'Error fetching history: {e}')
             return None
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        payload: Optional[Dict] = None,
+        params: Optional[Dict] = None,
+        timeout: int = 30,
+    ) -> requests.Response:
+        """Perform a raw REST request against Home Assistant."""
+        normalized_path = path if path.startswith('/') else f'/{path}'
+        return requests.request(
+            method.upper(),
+            f'{self.ha_url}{normalized_path}',
+            headers=self._headers,
+            json=payload,
+            params=params,
+            timeout=timeout,
+        )
 
     # ============================================
     # WebSocket API Methods
@@ -292,6 +316,12 @@ class HAConnector:
         }
         return self._ws_send_and_receive(command)
 
+    def websocket_command(self, command: Dict) -> Optional[Dict]:
+        """Send an arbitrary Home Assistant WebSocket command."""
+        request = dict(command)
+        request.setdefault('id', 1)
+        return self._ws_send_and_receive(request)
+
     # ============================================
     # Addon Discovery Methods
     # ============================================
@@ -354,6 +384,55 @@ class HAConnector:
             logger.debug('Could not detect addon hostname via websocket: %s', e)
 
         return addon_slug
+
+    def supervisor_api(self, endpoint: str, method: str = 'get', data: Optional[Dict] = None) -> Optional[Dict]:
+        """Call a Supervisor API endpoint through the HA websocket supervisor bridge."""
+        command = {
+            'id': 1,
+            'type': 'supervisor/api',
+            'endpoint': endpoint if endpoint.startswith('/') else f'/{endpoint}',
+            'method': method.lower(),
+        }
+        if data is not None:
+            command['data'] = data
+        return self._ws_send_and_receive(command)
+
+    def list_addons(self) -> List[Dict]:
+        """Return the Supervisor addon list when available."""
+        result = self.supervisor_api('/addons')
+        if not result:
+            return []
+
+        payload = result.get('data', result)
+        addons = payload.get('addons', []) if isinstance(payload, dict) else []
+        return addons if isinstance(addons, list) else []
+
+    def resolve_addon_slug(self, addon_slug: str = 'gridmate') -> str:
+        """Resolve an addon slug to the Supervisor slug used by HA."""
+        for addon in self.list_addons():
+            slug = addon.get('slug', '')
+            if slug == addon_slug or slug.endswith(f'_{addon_slug}'):
+                return slug
+        return addon_slug
+
+    def get_addon_logs(self, addon_slug: str = 'gridmate', lines: int = 100) -> List[str]:
+        """Fetch addon logs via the Supervisor bridge."""
+        resolved_slug = self.resolve_addon_slug(addon_slug)
+        result = self.supervisor_api(f'/addons/{resolved_slug}/logs')
+        if not result:
+            return []
+
+        payload = result.get('data', result)
+        log_blob = ''
+        if isinstance(payload, dict):
+            log_blob = payload.get('logs') or payload.get('result') or ''
+        elif isinstance(payload, str):
+            log_blob = payload
+
+        collected_lines = log_blob.splitlines()
+        if lines > 0:
+            return collected_lines[-lines:]
+        return collected_lines
 
     # ============================================
     # Service & Automation API Methods
