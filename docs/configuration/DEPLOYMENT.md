@@ -108,10 +108,12 @@ The `DataConnector` class selects the path based on the `LOCAL_DEV` environment 
 ## Dockerfile
 
 The Dockerfile follows the standard HA addon pattern:
-1. Builds from the HA base image (`$BUILD_FROM`)
+1. Builds from the HA base image (`$BUILD_FROM`) with a fallback default of `ghcr.io/home-assistant/base:latest`
 2. Installs Python packages
 3. Copies application code to `/app`
 4. Uses `CMD [ "/run.sh" ]` as entrypoint (compatible with S6 v3 + `init: false`)
+
+The fallback default keeps local and Supervisor-triggered rebuilds working even if `BUILD_FROM` is not injected explicitly. When Supervisor provides `BUILD_FROM`, that value still takes precedence.
 
 ## Local Development Setup
 
