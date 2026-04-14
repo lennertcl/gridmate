@@ -172,149 +172,177 @@
     line-height: 1;
 }
 
-/* ----- Today's Use ----- */
-.today-grid {
+/* ----- Side-by-side chart rows ----- */
+.live-charts-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
-    align-items: stretch;
+    gap: 1.5rem;
 }
 
-.today-main {
+.live-chart-col h3 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+}
+
+/* ----- Energy Flow ----- */
+.energy-flow {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    padding: 1.25rem;
-    border-radius: var(--radius-md);
-    border: 2px solid var(--color-usage);
-    background: linear-gradient(135deg, rgba(30, 144, 255, 0.05) 0%, var(--color-bg) 100%);
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(240, 253, 247, 0.92) 100%);
+    box-shadow: var(--shadow-sm);
 }
 
-.today-hero {
+.flow-segments {
     display: flex;
+    width: 100%;
+    min-height: 4rem;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: calc(var(--radius-lg) - 0.125rem);
+    background: var(--color-surface);
+}
+
+.flow-seg {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.75rem;
-}
-
-.today-hero-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
+    justify-content: center;
+    gap: 0.2rem;
+    min-width: 0;
+    white-space: nowrap;
     flex: 1;
+    padding: 0.75rem 0.65rem;
+    border-top: 2px solid transparent;
 }
 
-.today-hero-label {
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--color-text-light);
-    line-height: 1;
+.flow-seg-import {
+    border-top-color: var(--color-consumption);
+    background: linear-gradient(135deg, rgba(255, 140, 66, 0.12) 0%, rgba(240, 253, 247, 0.9) 100%);
 }
 
-.today-hero-value {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.5rem;
-    font-weight: 700;
-    line-height: 1.2;
-    color: var(--color-text);
+.flow-seg-self {
+    border-top-color: var(--color-injection);
+    background: linear-gradient(135deg, rgba(0, 217, 126, 0.12) 0%, rgba(240, 253, 247, 0.9) 100%);
 }
 
-.today-breakdown {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    border-top: 1px solid var(--color-border);
-    padding-top: 0.75rem;
+.flow-seg-export {
+    border-top-color: var(--color-production);
+    background: linear-gradient(135deg, rgba(235, 231, 48, 0.14) 0%, rgba(240, 253, 247, 0.9) 100%);
 }
 
-.today-breakdown-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.4rem 0;
+.flow-seg + .flow-seg {
+    border-left: 1px solid rgba(197, 231, 220, 0.9);
 }
 
-.today-breakdown-row + .today-breakdown-row {
-    border-top: 1px solid var(--color-border);
-}
-
-.today-breakdown-marker {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.today-marker-import {
-    background: var(--color-consumption);
-}
-
-.today-marker-self {
-    background: var(--color-injection);
-}
-
-.today-breakdown-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--color-text-light);
-    flex: 1;
-}
-
-.today-breakdown-value {
+.flow-seg-value {
     font-family: 'Poppins', sans-serif;
     font-size: 0.95rem;
     font-weight: 700;
     color: var(--color-text);
-    text-align: right;
+    line-height: 1.2;
 }
 
-.today-details {
+.flow-seg-label {
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-light);
+    line-height: 1;
+}
+
+.flow-totals {
     display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
+    width: 100%;
+    min-height: 3.2rem;
+    margin-top: 0.6rem;
 }
 
-.today-tile {
+.flow-total {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    overflow: hidden;
+    flex: 1;
+    border: 2px solid transparent;
+}
+
+.flow-total-usage {
+    background: linear-gradient(135deg, rgba(30, 144, 255, 0.08) 0%, var(--color-bg) 100%);
+    color: var(--color-usage);
+    border-color: var(--color-usage);
+    border-radius: calc(var(--radius-lg) - 0.125rem) 0 0 calc(var(--radius-lg) - 0.125rem);
+}
+
+.flow-total-production {
+    background: linear-gradient(135deg, rgba(235, 231, 48, 0.09) 0%, var(--color-bg) 100%);
+    color: var(--color-production);
+    border-color: var(--color-production);
+    border-radius: 0 calc(var(--radius-lg) - 0.125rem) calc(var(--radius-lg) - 0.125rem) 0;
+    justify-content: flex-end;
+}
+
+.flow-total-value {
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.flow-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.flow-stat-card {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.85rem 1rem;
-    border-radius: var(--radius-md);
-    border: 2px solid var(--color-border);
-    background-color: var(--color-bg);
-    flex: 1;
+    min-height: 4.5rem;
+    background-color: var(--color-surface);
 }
 
-.today-tile-export {
-    border-color: var(--color-injection);
-    background: linear-gradient(135deg, rgba(0, 217, 126, 0.05) 0%, var(--color-bg) 100%);
-}
-
-.today-tile-self-sufficiency {
-    border-color: var(--color-production);
-    background: linear-gradient(135deg, rgba(235, 231, 48, 0.05) 0%, var(--color-bg) 100%);
-}
-
-.today-tile-net-grid {
-    border-color: var(--color-consumption);
-    background: linear-gradient(135deg, rgba(255, 140, 66, 0.05) 0%, var(--color-bg) 100%);
-}
-
-.today-tile-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--color-text-light);
-    flex: 1;
-}
-
-.today-tile-value {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.15rem;
-    font-weight: 700;
-    line-height: 1.2;
-    color: var(--color-text);
+.flow-stat-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+    margin-left: auto;
     text-align: right;
+}
+
+.flow-stat-value {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-text);
+    line-height: 1.2;
+}
+
+.flow-stat-name {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-light);
+}
+
+.live-chart-col:only-child {
+    grid-column: 1 / -1;
 }
 
 @keyframes live_pulse {
@@ -323,7 +351,7 @@
 }
 
 @media (max-width: 768px) {
-    .live-page-header {
+    .live-section-header {
         flex-direction: column;
         align-items: flex-start;
     }
@@ -349,22 +377,32 @@
     }
 
     .sensor-status {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
     }
 
     .sensor-value {
         font-size: 1rem;
     }
 
-    .today-grid {
+    .live-charts-row {
         grid-template-columns: 1fr;
     }
 
-    .today-hero-value {
-        font-size: 1.25rem;
+    .flow-segments,
+    .flow-totals,
+    .flow-stats {
+        grid-template-columns: 1fr;
+        display: grid;
     }
 
-    .today-tile-value {
-        font-size: 1rem;
+    .flow-seg + .flow-seg {
+        border-left: none;
+        border-top: 1px solid rgba(197, 231, 220, 0.9);
+    }
+
+    .flow-total-usage,
+    .flow-total-production {
+        border-radius: calc(var(--radius-lg) - 0.125rem);
+        justify-content: space-between;
     }
 }

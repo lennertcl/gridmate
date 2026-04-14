@@ -1,37 +1,37 @@
 {% extends "layout.html" %}
 
-{% block title %}Real-time Energy Insights - GridMate{% endblock %}
+{% block title %}Energy Dashboard - GridMate{% endblock %}
 
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/live.css') }}">
 <div class="page-header live-page-header">
-    <h2>Real-time Energy Insights</h2>
-    <div class="range-selector">
-        <button class="btn btn-sm btn-icon" id="range-back" title="Back 2 hours">
-            <i class="fas fa-chevron-left"></i>
-        </button>
-        <div class="range-inputs">
-            <div class="range-field">
-                <label class="range-label" for="range-start">From</label>
-                <input type="datetime-local" id="range-start" class="range-input">
+    <h2>Energy Dashboard</h2>
+            <div class="range-selector">
+                <button class="btn btn-sm btn-icon" id="range-back" title="Previous day">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <div class="range-inputs">
+                    <div class="range-field">
+                        <label class="range-label" for="range-start">From</label>
+                        <input type="datetime-local" id="range-start" class="range-input">
+                    </div>
+                    <div class="range-field">
+                        <label class="range-label" for="range-end">To</label>
+                        <input type="datetime-local" id="range-end" class="range-input">
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-icon" id="range-forward" title="Next day">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+                <span class="live-indicator active" id="live-indicator">
+                    <span class="live-dot"></span>LIVE
+                </span>
             </div>
-            <div class="range-field">
-                <label class="range-label" for="range-end">To</label>
-                <input type="datetime-local" id="range-end" class="range-input">
-            </div>
-        </div>
-        <button class="btn btn-sm btn-icon" id="range-forward" title="Forward 2 hours">
-            <i class="fas fa-chevron-right"></i>
-        </button>
-        <span class="live-indicator active" id="live-indicator">
-            <span class="live-dot"></span>LIVE
-        </span>
-    </div>
 </div>
+
 
 <div class="dashboard-grid">
     <section class="card card-full-width">
-        <h3>Live data</h3>
         <div class="sensor-status">
             <div class="sensor-item sensor-item-usage">
                 <span class="badge badge-usage-light">
@@ -40,7 +40,6 @@
                 <span class="sensor-name">&nbsp;Usage</span>
                 <div class="sensor-copy">
                     <span class="sensor-value" id="val-usage">-- kW</span>
-                    <span class="sensor-energy" id="energy-usage">-- kWh</span>
                 </div>
             </div>
             <div class="sensor-item sensor-item-production">
@@ -50,7 +49,6 @@
                 <span class="sensor-name">&nbsp;Production</span>
                 <div class="sensor-copy">
                     <span class="sensor-value" id="val-production">-- kW</span>
-                    <span class="sensor-energy" id="energy-production">-- kWh</span>
                 </div>
             </div>
             <div class="sensor-item sensor-item-consumption">
@@ -60,7 +58,6 @@
                 <span class="sensor-name">&nbsp;Consumption</span>
                 <div class="sensor-copy">
                     <span class="sensor-value" id="val-consumption">-- kW</span>
-                    <span class="sensor-energy" id="energy-consumption">-- kWh</span>
                 </div>
             </div>
             <div class="sensor-item sensor-item-injection">
@@ -70,77 +67,92 @@
                 <span class="sensor-name">&nbsp;Injection</span>
                 <div class="sensor-copy">
                     <span class="sensor-value" id="val-injection">-- kW</span>
-                    <span class="sensor-energy" id="energy-injection">-- kWh</span>
                 </div>
             </div>
         </div>
     </section>
 
     <section class="card card-full-width">
-        <h3>Grid Interaction (Live)</h3>
-        <div class="chart-container" style="height: 400px;">
-            <canvas id="consumptionChart"></canvas>
-        </div>
-    </section>
-
-    <section class="card card-full-width">
-        <h3>Energy Usage (Live)</h3>
-        <div class="chart-container" style="height: 400px;">
-            <canvas id="energyChart"></canvas>
-        </div>
-    </section>
-
-    <section class="card card-full-width">
-        <h3>Today's Use</h3>
-        <div class="today-grid">
-            <div class="today-main">
-                <div class="today-hero">
-                    <span class="badge badge-usage-light">
-                        <i class="fas fa-bolt sensor-icon"></i>
-                    </span>
-                    <div class="today-hero-copy">
-                        <span class="today-hero-label">Total usage</span>
-                        <span class="today-hero-value" id="today-total-used">-- kWh</span>
-                    </div>
-                </div>
-                <div class="today-breakdown">
-                    <div class="today-breakdown-row">
-                        <span class="today-breakdown-marker today-marker-import"></span>
-                        <span class="sensor-name">Imported</span>
-                        <span class="today-breakdown-value" id="today-grid-import">-- kWh</span>
-                    </div>
-                    <div class="today-breakdown-row">
-                        <span class="today-breakdown-marker today-marker-self"></span>
-                        <span class="sensor-name">Self consumed</span>
-                        <span class="today-breakdown-value" id="today-direct-solar">-- kWh</span>
-                    </div>
+        <div class="live-charts-row">
+            <div class="live-chart-col">
+                <h3>Grid Interaction</h3>
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="consumptionChart"></canvas>
                 </div>
             </div>
-            <div class="today-details">
-                <div class="today-tile today-tile-export">
-                    <span class="badge badge-injection-light">
-                        <i class="fas fa-circle-up sensor-icon"></i>
-                    </span>
-                    <span class="sensor-name">Injected</span>
-                    <span class="today-tile-value" id="today-grid-export">-- kWh</span>
-                </div>
-                <div class="today-tile today-tile-self-sufficiency">
-                    <span class="badge badge-production-light">
-                        <i class="fas fa-sun sensor-icon"></i>
-                    </span>
-                    <span class="sensor-name">Self-sufficiency</span>
-                    <span class="today-tile-value" id="today-self-sufficiency">--%</span>
-                </div>
-                <div class="today-tile today-tile-net-grid">
-                    <span class="badge badge-consumption-light">
-                        <i class="fas fa-arrows-up-down sensor-icon"></i>
-                    </span>
-                    <span class="sensor-name">Net grid</span>
-                    <span class="today-tile-value" id="today-net-grid-balance">-- kWh</span>
+            <div class="live-chart-col">
+                <h3>Energy Usage</h3>
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="energyChart"></canvas>
                 </div>
             </div>
         </div>
     </section>
+
+    {% if price_sensors or solar_configured %}
+    <section class="card card-full-width">
+        <div class="live-charts-row">
+            {% if price_sensors %}
+            <div class="live-chart-col">
+                <h3>Energy Price</h3>
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="priceChart"></canvas>
+                </div>
+            </div>
+            {% endif %}
+            {% if solar_configured %}
+            <div class="live-chart-col">
+                <h3>Solar</h3>
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="solar-production-chart"></canvas>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!--
+    <section class="card card-full-width">
+        <div class="energy-flow" id="energy-flow">
+            <div class="flow-segments" id="flow-segments">
+                <div class="flow-seg flow-seg-import" id="flow-seg-import">
+                    <span class="flow-seg-value" id="today-grid-import">--</span>
+                    <span class="flow-seg-label">Grid Import</span>
+                </div>
+                <div class="flow-seg flow-seg-self" id="flow-seg-self">
+                    <span class="flow-seg-value" id="today-direct-solar">--</span>
+                    <span class="flow-seg-label">Self-consumed</span>
+                </div>
+                <div class="flow-seg flow-seg-export" id="flow-seg-export">
+                    <span class="flow-seg-value" id="today-grid-export">--</span>
+                    <span class="flow-seg-label">Exported</span>
+                </div>
+            </div>
+        </div>
+        <div class="flow-stats">
+            <div class="sensor-item sensor-item-production flow-stat-card">
+                <span class="badge badge-production-light">
+                    <i class="fas fa-sun sensor-icon"></i>
+                </span>
+                <div class="flow-stat-copy">
+                    <span class="flow-stat-name">Self-sufficiency</span>
+                    <span class="flow-stat-value" id="today-self-sufficiency">--%</span>
+                </div>
+            </div>
+            <div class="sensor-item sensor-item-consumption flow-stat-card">
+                <span class="badge badge-consumption-light">
+                    <i class="fas fa-arrows-up-down sensor-icon"></i>
+                </span>
+                <div class="flow-stat-copy">
+                    <span class="flow-stat-name">Net Grid</span>
+                    <span class="flow-stat-value" id="today-net-grid-balance">-- kWh</span>
+                </div>
+            </div>
+        </div>
+    </section>
+    -->
+
 </div>
 {% endblock %}
 
@@ -153,10 +165,16 @@
             usage: "{{ actual_usage_sensor }}",
             production: "{{ actual_production_sensor }}"
         },
-        usage_mode: "{{ usage_mode }}"
+        usage_mode: "{{ usage_mode }}",
+        price_sensors: {{ price_sensors | tojson }},
+        solar_configured: {{ solar_configured | tojson }},
+        solar_sensors: {{ solar_sensors | tojson }}
     };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='js/live-charts.js') }}"></script>
+{% if solar_configured %}
+<script src="{{ url_for('static', filename='js/solar-charts.js') }}"></script>
+{% endif %}
 <script type="module" src="{{ url_for('static', filename='js/live-dashboard.js') }}"></script>
 {% endblock %}

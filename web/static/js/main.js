@@ -9,6 +9,7 @@
 
 document.addEventListener('DOMContentLoaded', function() {
     initializeNavigation();
+    initializeNavigationLoader();
     initializeForms();
     initializeTooltips();
     initializeResponsive();
@@ -59,6 +60,38 @@ function initializeNavigation() {
             document.querySelectorAll('.nav-group').forEach(function(g) {
                 g.classList.remove('open');
             });
+        }
+    });
+}
+
+// ============================================
+// Navigation Loading Overlay
+// ============================================
+
+function showNavigationLoader() {
+    var overlay = document.getElementById('nav-loading-overlay');
+    if (overlay) overlay.style.display = 'flex';
+}
+
+function initializeNavigationLoader() {
+    document.addEventListener('click', function(e) {
+        var link = e.target.closest('a[href]');
+        if (!link) return;
+
+        var href = link.getAttribute('href');
+        if (!href || href.startsWith('#') || href.startsWith('javascript:') || link.target === '_blank') return;
+
+        showNavigationLoader();
+    });
+
+    document.querySelectorAll('form').forEach(function(form) {
+        form.addEventListener('submit', showNavigationLoader);
+    });
+
+    window.addEventListener('pageshow', function(e) {
+        if (e.persisted) {
+            var overlay = document.getElementById('nav-loading-overlay');
+            if (overlay) overlay.style.display = 'none';
         }
     });
 }

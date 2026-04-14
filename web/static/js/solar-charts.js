@@ -13,15 +13,16 @@ function create_solar_production_chart() {
         data: {
             datasets: [
                 {
+                    type: 'bar',
                     label: 'Actual Production (kW)',
                     data: [],
                     borderColor: '#ebe730',
-                    backgroundColor: 'rgba(235, 231, 48, 0.12)',
-                    borderWidth: 2.5,
-                    tension: 0,
-                    fill: true,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
+                    backgroundColor: 'rgba(235, 231, 48, 0.45)',
+                    borderWidth: 1,
+                    barThickness: 'flex',
+                    barPercentage: .8,
+                    categoryPercentage: 1,
+                    order: 1,
                 },
                 {
                     label: 'Forecast (kW)',
@@ -34,6 +35,7 @@ function create_solar_production_chart() {
                     fill: false,
                     pointRadius: 0,
                     pointHoverRadius: 4,
+                    order: 0,
                 }
             ]
         },

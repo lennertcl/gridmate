@@ -64,11 +64,12 @@
                 <dl>
                     <dt>Usage Mode</dt>
                     <dd><strong>Auto:</strong> GridMate calculates usage as consumption + production &minus; injection. Requires solar sensors to be configured.
+                        <br>The energy dashboard aligns the Home Assistant 5-minute buckets for those sensors before it derives self-consumed solar and self-sufficiency.
                         <br><strong>Manual:</strong> Provide a dedicated usage sensor directly.</dd>
                     <dt>Actual Usage / Total Usage Sensors</dt>
                     <dd>Only needed in manual mode. Provide your own sensor for instantaneous usage (kW) and cumulative usage counters (kWh) per tariff.</dd>
-                    <dt>Live Dashboard Summary</dt>
-                    <dd>These four live sensors power the live dashboard cards, the selected-range kWh totals, and the compact today summary with imported, self-consumed, injected, and net grid values.</dd>
+                    <dt>Energy Dashboard Summary</dt>
+                    <dd>These four live sensors power the energy dashboard cards, the energy summary strip with usage, imported, self-consumed, exported, self-sufficiency, and net grid values, and all time-series charts.</dd>
                 </dl>
             </div>
         </div>

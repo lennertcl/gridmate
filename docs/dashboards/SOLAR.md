@@ -104,7 +104,7 @@ Shared route (used by all dashboards). Returns the Home Assistant URL and access
 The dashboard uses a grid layout with the following sections when configured:
 1. **Page Header** — Title
 2. **Solar Overview Card** — Contains the current production hero on the left (separated by a grey border-right) and a 2-column grid of stat cards on the right styled identically to the home battery dashboard's `.battery-stat` cards. Each `.solar-stat` card shows a production-colored icon, a bold value, and an uppercase label. The six stat cards are: Produced This Hour, Produced Today, Estimated This Hour, Estimated Today, Estimated Next Hour, and Estimated Tomorrow.
-3. **Production vs Forecast Chart** — Time-series line chart comparing actual production (yellow) against forecast (blue dashed). Defaults to showing the entire current day (00:00–23:59). Past forecast data comes from `estimated_actual_production`; future forecast data comes from `estimated_actual_production_offset_day` (each data point at time t represents forecast for t+24h, so timestamps are shifted +24h and only future points are plotted). Includes a range selector with start/end datetime pickers and back/forward buttons (±6h) for navigating the time window. All chart animations are disabled to prevent visual glitches during live updates.
+3. **Production vs Forecast Chart** — Mixed chart comparing actual production (yellow bars) against forecast (blue dashed line). Defaults to showing the entire current day (00:00–23:59). Past forecast data comes from `estimated_actual_production`; future forecast data comes from `estimated_actual_production_offset_day` (each data point at time t represents forecast for t+24h, so timestamps are shifted +24h and only future points are plotted). Includes a range selector with start/end datetime pickers and back/forward buttons (±6h) for navigating the time window. All chart animations are disabled to prevent visual glitches during live updates.
 
 ### JavaScript Architecture
 
@@ -128,5 +128,5 @@ Same pattern as the live dashboard:
 
 | Color Variable | Hex | Usage |
 |---|---|---|
-| `--color-production` | `#ebe730` | Hero card border, sensor-item borders/backgrounds, chart actual production line |
+| `--color-production` | `#ebe730` | Hero card border, sensor-item borders/backgrounds, chart actual production bars |
 | `--color-usage` | `#1e90ff` | Forecast/estimation chart line |

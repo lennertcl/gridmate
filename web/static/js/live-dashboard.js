@@ -1,12 +1,11 @@
 import { get_ha_connection } from './ha-connection.js';
 import { subscribeEntities } from 'https://esm.sh/home-assistant-js-websocket@9.6.0';
 
-const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
-const REALTIME_THRESHOLD_MS = 3 * 60 * 1000;
-const MAX_POINTS_PER_MINUTE = 5;
+const FULL_DAY_MS = 24 * 60 * 60 * 1000;
 
 let energy_chart = null;
 let consumption_chart = null;
+let price_chart = null;
 let ha_connection = null;
 let today_history = null;
 
@@ -54,39 +53,15 @@ function compute_energy_from_points(data_points, absolute = false) {
     return Math.max(0, total_kwh);
 }
 
-function reset_range_energy_counters() {
-    ['usage', 'production', 'consumption', 'injection'].forEach(key => update_text(`energy-${key}`, '-- kWh'));
-}
-
-function update_range_energy_counters() {
-    if (!energy_chart || !consumption_chart) return;
-
-    const usage_mode = window.HA_CONFIG.usage_mode || 'auto';
-    const usage_dataset = energy_chart.data.datasets[0]?.data || [];
-    const production_dataset = energy_chart.data.datasets[1]?.data || [];
-    const consumption_dataset = consumption_chart.data.datasets[0]?.data || [];
-    const injection_dataset = consumption_chart.data.datasets[1]?.data || [];
-
-    const production_kwh = compute_energy_from_points(production_dataset);
-    const consumption_kwh = compute_energy_from_points(consumption_dataset);
-    const injection_kwh = compute_energy_from_points(injection_dataset, true);
-    const usage_kwh = usage_mode === 'manual'
-        ? compute_energy_from_points(usage_dataset)
-        : Math.max(0, consumption_kwh + production_kwh - injection_kwh);
-
-    update_text('energy-usage', format_energy(usage_kwh));
-    update_text('energy-production', format_energy(production_kwh));
-    update_text('energy-consumption', format_energy(consumption_kwh));
-    update_text('energy-injection', format_energy(injection_kwh));
-}
-
 function reset_today_use_section() {
     update_text('today-total-used', '-- kWh');
-    update_text('today-grid-import', '-- kWh');
-    update_text('today-direct-solar', '-- kWh');
-    update_text('today-grid-export', '-- kWh');
+    update_text('today-grid-import', '--');
+    update_text('today-direct-solar', '--');
+    update_text('today-grid-export', '--');
     update_text('today-self-sufficiency', '--%');
     update_text('today-net-grid-balance', '-- kWh');
+    update_text('today-total-production', '-- kWh');
+    reset_energy_flow();
 }
 
 function update_today_use_section() {
@@ -95,13 +70,10 @@ function update_today_use_section() {
         return;
     }
 
-    const usage_mode = window.HA_CONFIG.usage_mode || 'auto';
     const consumption_kwh = compute_energy_from_points(today_history.consumption);
-    const injection_kwh = compute_energy_from_points(today_history.injection, true);
+    const injection_kwh = compute_energy_from_points(today_history.injection);
     const production_kwh = compute_energy_from_points(today_history.production);
-    const usage_kwh = usage_mode === 'manual'
-        ? compute_energy_from_points(today_history.usage)
-        : Math.max(0, consumption_kwh + production_kwh - injection_kwh);
+    const usage_kwh = compute_energy_from_points(today_history.usage);
     const direct_solar_kwh = Math.max(0, usage_kwh - consumption_kwh);
     const net_grid_balance = injection_kwh - consumption_kwh;
     const net_balance_prefix = net_grid_balance > 0 ? '+' : net_grid_balance < 0 ? '-' : '';
@@ -115,6 +87,8 @@ function update_today_use_section() {
     update_text('today-grid-export', format_energy(injection_kwh));
     update_text('today-self-sufficiency', self_sufficiency);
     update_text('today-net-grid-balance', `${net_balance_prefix}${format_energy(Math.abs(net_grid_balance))}`);
+    update_text('today-total-production', format_energy(production_kwh));
+    update_energy_flow(consumption_kwh, direct_solar_kwh, injection_kwh, production_kwh);
 }
 
 function append_history_point(data_points, timestamp, value, nullify_zero = false) {
@@ -140,50 +114,37 @@ function statistics_to_data_points(statistics, transform_value = value => value)
 
     return statistics
         .filter(stat => stat.mean !== null && stat.mean !== undefined)
-        .map(stat => ({
-            x: stat.start,
-            y: transform_value(stat.mean)
-        }));
+        .map(stat => {
+            const ts = stat.start < 1e12 ? stat.start * 1000 : stat.start;
+            return { x: ts, y: transform_value(stat.mean) };
+        });
 }
 
-function build_today_history_from_statistics(statistics_data) {
-    const config = window.HA_CONFIG.sensors;
-    const usage_mode = window.HA_CONFIG.usage_mode || 'auto';
-
-    return {
-        consumption: statistics_to_data_points(statistics_data[config.consumption]),
-        injection: statistics_to_data_points(statistics_data[config.injection], value => -value),
-        production: statistics_to_data_points(statistics_data[config.production]),
-        usage: usage_mode === 'manual'
-            ? statistics_to_data_points(statistics_data[config.usage])
-            : []
-    };
+function get_history_timestamps(series_collection) {
+    return [...new Set(series_collection.flatMap(series => series.map(point => point.x)))].sort((a, b) => a - b);
 }
 
-function get_history_entity_ids() {
-    const config = window.HA_CONFIG.sensors;
+function align_history_points(data_points, timestamps) {
+    const points_by_timestamp = new Map(data_points.map(point => [point.x, point.y]));
 
-    return [
-        config.consumption,
-        config.injection,
-        config.usage,
-        config.production
-    ].filter(id => id);
+    return timestamps.map(timestamp => ({
+        x: timestamp,
+        y: points_by_timestamp.get(timestamp) ?? 0,
+    }));
 }
 
-async function fetch_history_data(connection, start_time, end_time) {
-    const entity_ids = get_history_entity_ids();
+function build_auto_usage_points(consumption_points, production_points, injection_points, timestamps) {
+    const aligned_consumption = align_history_points(consumption_points, timestamps);
+    const aligned_production = align_history_points(production_points, timestamps);
+    const aligned_injection = align_history_points(injection_points, timestamps);
 
-    if (entity_ids.length === 0) return null;
-
-    return connection.sendMessagePromise({
-        type: 'history/history_during_period',
-        start_time: start_time.toISOString(),
-        end_time: end_time.toISOString(),
-        entity_ids: entity_ids,
-        minimal_response: true,
-        no_attributes: true
-    });
+    return timestamps.map((timestamp, index) => ({
+        x: timestamp,
+        y: Math.max(
+            0,
+            aligned_consumption[index].y + aligned_production[index].y - aligned_injection[index].y,
+        ),
+    }));
 }
 
 function get_start_time() {
@@ -200,9 +161,8 @@ function format_datetime_local(date) {
 }
 
 function is_realtime_window() {
-    const end_time = get_end_time();
     const now = new Date();
-    return Math.abs(now.getTime() - end_time.getTime()) < REALTIME_THRESHOLD_MS;
+    return now >= get_start_time() && now <= get_end_time();
 }
 
 function update_live_indicator() {
@@ -217,22 +177,18 @@ function update_live_indicator() {
 
 function init_range_defaults() {
     const now = new Date();
-    const two_hours_ago = new Date(now.getTime() - TWO_HOURS_MS);
-    document.getElementById('range-start').value = format_datetime_local(two_hours_ago);
-    document.getElementById('range-end').value = format_datetime_local(now);
+    const start_of_day = get_start_of_day(now);
+    const end_of_day = new Date(start_of_day.getTime() + FULL_DAY_MS);
+    document.getElementById('range-start').value = format_datetime_local(start_of_day);
+    document.getElementById('range-end').value = format_datetime_local(end_of_day);
     update_live_indicator();
 }
 
 function shift_range(offset_ms) {
     const start_input = document.getElementById('range-start');
     const end_input = document.getElementById('range-end');
-    let new_start = new Date(new Date(start_input.value).getTime() + offset_ms);
-    let new_end = new Date(new Date(end_input.value).getTime() + offset_ms);
-    const now = new Date();
-    if (new_end.getTime() > now.getTime()) {
-        new_end = now;
-        new_start = new Date(now.getTime() - TWO_HOURS_MS);
-    }
+    const new_start = new Date(new Date(start_input.value).getTime() + offset_ms);
+    const new_end = new Date(new Date(end_input.value).getTime() + offset_ms);
     start_input.value = format_datetime_local(new_start);
     end_input.value = format_datetime_local(new_end);
     update_live_indicator();
@@ -249,168 +205,119 @@ function init_range_controls() {
 
     document.getElementById('range-start').addEventListener('change', on_range_change);
     document.getElementById('range-end').addEventListener('change', on_range_change);
-    document.getElementById('range-back').addEventListener('click', () => shift_range(-TWO_HOURS_MS));
-    document.getElementById('range-forward').addEventListener('click', () => shift_range(TWO_HOURS_MS));
+    document.getElementById('range-back').addEventListener('click', () => shift_range(-FULL_DAY_MS));
+    document.getElementById('range-forward').addEventListener('click', () => shift_range(FULL_DAY_MS));
 }
 
 async function reload_history() {
     clear_chart(energy_chart);
     clear_chart(consumption_chart);
-    reset_range_energy_counters();
+    if (price_chart) clear_chart(price_chart);
+    if (typeof clear_solar_charts === 'function') clear_solar_charts();
+
     if (ha_connection) {
-        await fetch_and_render_history(ha_connection);
-        await fetch_and_render_today_details(ha_connection);
+        const start_time = get_start_time();
+        const end_time = get_end_time();
+
+        if (price_chart) {
+            price_chart.options.scales.x.min = start_time;
+            price_chart.options.scales.x.max = end_time;
+            price_chart.update('none');
+        }
+        if (typeof update_solar_chart_range === 'function') {
+            update_solar_chart_range(start_time, end_time);
+        }
+
+        await fetch_and_render_statistics(ha_connection);
+        await fetch_and_render_price_history(ha_connection);
+        await fetch_and_render_solar_history(ha_connection);
     }
 }
 
-function compute_usage_from_history(consumption_history, production_history, injection_history) {
-    const parse_series = (history) => {
-        if (!history) return [];
-        return history
-            .filter(item => item.s && !isNaN(parseFloat(item.s)))
-            .map(item => ({ ts: item.lc || item.lu, val: parseFloat(item.s) }))
-            .sort((a, b) => a.ts - b.ts);
-    };
-
-    const cons_series = parse_series(consumption_history);
-    const prod_series = parse_series(production_history);
-    const inj_series = parse_series(injection_history);
-
-    const all_timestamps = new Set();
-    [cons_series, prod_series, inj_series].forEach(s => s.forEach(p => all_timestamps.add(p.ts)));
-    const sorted_timestamps = [...all_timestamps].sort((a, b) => a - b);
-
-    if (sorted_timestamps.length === 0) return [];
-
-    const last_known_at = (series, t) => {
-        let val = 0;
-        for (const point of series) {
-            if (point.ts > t) break;
-            val = point.val;
-        }
-        return val;
-    };
-
-    const all_points = sorted_timestamps.map(t => {
-        const cons = last_known_at(cons_series, t);
-        const prod = last_known_at(prod_series, t);
-        const inj = last_known_at(inj_series, t);
-        const usage = Math.max(0, cons + prod - inj);
-        return { s: usage.toString(), lc: t };
-    });
-
-    if (MAX_POINTS_PER_MINUTE >= 60) return all_points;
-
-    const interval_s = 60 / MAX_POINTS_PER_MINUTE;
-    const result = [];
-    let i = 0;
-    while (i < all_points.length) {
-        const minute_start = Math.floor(all_points[i].lc / 60) * 60;
-        const minute_end = minute_start + 60;
-        const minute_points = [];
-        while (i < all_points.length && all_points[i].lc < minute_end) {
-            minute_points.push(all_points[i]);
-            i++;
-        }
-        for (let slot = 0; slot < MAX_POINTS_PER_MINUTE; slot++) {
-            const slot_start = minute_start + slot * interval_s;
-            const slot_end = slot_start + interval_s;
-            const slot_points = minute_points.filter(p => p.lc >= slot_start && p.lc < slot_end);
-            if (slot_points.length > 0) {
-                result.push(slot_points[Math.floor(slot_points.length / 2)]);
-            }
-        }
-    }
-
-    return result;
-}
-
-async function fetch_and_render_history(connection) {
-    const config = window.HA_CONFIG.sensors;
-    const start_time = get_start_time();
-    const end_time = get_end_time();
-
-    try {
-        const history_data = await fetch_history_data(connection, start_time, end_time);
-        if (!history_data) {
-            reset_range_energy_counters();
-            return;
-        }
-
-        const usage_mode = window.HA_CONFIG.usage_mode || 'auto';
-
-        if (usage_mode === 'manual' && history_data[config.usage]) {
-            process_history_for_chart(energy_chart, history_data[config.usage], 0);
-        }
-
-        if (history_data[config.production]) {
-            process_history_for_chart(energy_chart, history_data[config.production], 1, true);
-        }
-
-        window.process_activity_history_for_chart(
-            consumption_chart,
-            history_data[config.consumption],
-            history_data[config.injection],
-            0,
-            value => value
-        );
-
-        window.process_activity_history_for_chart(
-            consumption_chart,
-            history_data[config.injection],
-            history_data[config.consumption],
-            1,
-            value => -value
-        );
-
-        if (usage_mode === 'auto') {
-            const computed_usage = compute_usage_from_history(
-                history_data[config.consumption],
-                history_data[config.production],
-                history_data[config.injection]
-            );
-            process_history_for_chart(energy_chart, computed_usage, 0);
-        }
-
-        update_range_energy_counters();
-    } catch (error) {
-        console.error('Error fetching history:', error);
-        reset_range_energy_counters();
-    }
-}
-
-async function fetch_today_statistics(connection) {
+async function fetch_and_render_statistics(connection) {
     const config = window.HA_CONFIG.sensors;
     const statistic_ids = [config.consumption, config.injection, config.production];
-
     if (config.usage) statistic_ids.push(config.usage);
-
     const valid_ids = statistic_ids.filter(id => id);
-    if (valid_ids.length === 0) return null;
 
-    return connection.sendMessagePromise({
-        type: 'recorder/statistics_during_period',
-        start_time: get_start_of_day(new Date()).toISOString(),
-        statistic_ids: valid_ids,
-        period: '5minute',
-        types: ['mean'],
-    });
-}
+    if (valid_ids.length === 0) {
+        today_history = null;
+        reset_today_use_section();
+        return;
+    }
 
-async function fetch_and_render_today_details(connection) {
+    const start_time = get_start_time();
+    const now = new Date();
+    const end_time = new Date(Math.min(get_end_time().getTime(), now.getTime()));
+
     try {
-        const statistics_data = await fetch_today_statistics(connection);
+        const stats = await connection.sendMessagePromise({
+            type: 'recorder/statistics_during_period',
+            start_time: start_time.toISOString(),
+            end_time: end_time.toISOString(),
+            statistic_ids: valid_ids,
+            period: '5minute',
+            types: ['mean'],
+        });
 
-        if (!statistics_data) {
+        if (!stats) {
             today_history = null;
             reset_today_use_section();
             return;
         }
 
-        today_history = build_today_history_from_statistics(statistics_data);
+        const consumption_points = statistics_to_data_points(stats[config.consumption]);
+        const injection_points = statistics_to_data_points(stats[config.injection]);
+        const production_points = statistics_to_data_points(stats[config.production]);
+
+        const usage_mode = window.HA_CONFIG.usage_mode || 'auto';
+        const manual_usage_points = usage_mode === 'manual' && config.usage
+            ? statistics_to_data_points(stats[config.usage])
+            : [];
+        const timestamps = get_history_timestamps([
+            consumption_points,
+            injection_points,
+            production_points,
+            manual_usage_points,
+        ]);
+
+        const aligned_consumption_points = align_history_points(consumption_points, timestamps);
+        const aligned_injection_points = align_history_points(injection_points, timestamps);
+        const aligned_production_points = align_history_points(production_points, timestamps);
+        let usage_points;
+
+        if (usage_mode === 'manual' && config.usage) {
+            usage_points = align_history_points(manual_usage_points, timestamps);
+        } else {
+            usage_points = build_auto_usage_points(
+                aligned_consumption_points,
+                aligned_production_points,
+                aligned_injection_points,
+                timestamps,
+            );
+        }
+
+        set_chart_dataset(energy_chart, 0, usage_points);
+        set_chart_dataset(energy_chart, 1, aligned_production_points.map(p => ({
+            x: p.x, y: p.y > 0.001 ? p.y : null
+        })));
+
+        set_chart_dataset(consumption_chart, 0, aligned_consumption_points.map(p => ({
+            x: p.x, y: p.y > 0.001 ? p.y : null
+        })), true);
+        set_chart_dataset(consumption_chart, 1, aligned_injection_points.map(p => ({
+            x: p.x, y: p.y > 0.001 ? -p.y : null
+        })), true);
+
+        today_history = {
+            consumption: aligned_consumption_points,
+            injection: aligned_injection_points,
+            production: aligned_production_points,
+            usage: usage_points,
+        };
         update_today_use_section();
     } catch (error) {
-        console.error('Error fetching today statistics:', error);
+        console.error('Error fetching statistics:', error);
         today_history = null;
         reset_today_use_section();
     }
@@ -449,26 +356,19 @@ function update_dashboard(entities) {
     update_text('val-consumption', consumption.text);
     update_text('val-injection', injection.text);
 
-    if (today_history) {
-        const now = new Date();
-
-        append_history_point(today_history.consumption, now, consumption.val, false);
-        append_history_point(today_history.injection, now, -injection.val, false);
-        append_history_point(today_history.production, now, production.val, false);
-
-        if (usage_mode === 'manual') {
-            append_history_point(today_history.usage, now, usage.val, false);
-        }
-
-        update_today_use_section();
-    }
-
     if (!is_realtime_window()) return;
 
     const now = new Date();
     const start_time = get_start_time();
 
-    document.getElementById('range-end').value = format_datetime_local(now);
+    if (today_history) {
+        append_history_point(today_history.consumption, now, consumption.val, false);
+        append_history_point(today_history.injection, now, injection.val, false);
+        append_history_point(today_history.production, now, production.val, false);
+
+        append_history_point(today_history.usage, now, computed_usage.val, false);
+        update_today_use_section();
+    }
 
     if (energy_chart) {
         update_chart_realtime(energy_chart, now, [computed_usage.val, production.val], start_time);
@@ -479,8 +379,29 @@ function update_dashboard(entities) {
             injection.val === 0 ? null : -injection.val
         ], start_time);
     }
+}
 
-    update_range_energy_counters();
+function update_energy_flow(import_kwh, self_kwh, export_kwh, production_kwh) {
+    const usage_kwh = import_kwh + self_kwh;
+
+    const set_flex = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.style.flex = value > 0 ? String(value) : '0.001';
+    };
+
+    set_flex('flow-seg-import', import_kwh);
+    set_flex('flow-seg-self', self_kwh);
+    set_flex('flow-seg-export', export_kwh);
+
+    set_flex('flow-total-usage', usage_kwh);
+    set_flex('flow-total-production', production_kwh);
+}
+
+function reset_energy_flow() {
+    ['flow-seg-import', 'flow-seg-self', 'flow-seg-export', 'flow-total-usage', 'flow-total-production'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.flex = '1';
+    });
 }
 
 function update_text(element_id, text) {
@@ -488,20 +409,231 @@ function update_text(element_id, text) {
     if (el) el.innerText = text;
 }
 
+async function fetch_and_render_price_history(connection) {
+    const price_sensors = window.HA_CONFIG.price_sensors || [];
+    if (!price_chart || price_sensors.length === 0) return;
+
+    const start_time = get_start_time();
+    const end_time = get_end_time();
+    const entity_ids = price_sensors.map(s => s.entity_id).filter(id => id);
+
+    if (entity_ids.length === 0) return;
+
+    try {
+        const history_data = await connection.sendMessagePromise({
+            type: 'history/history_during_period',
+            start_time: start_time.toISOString(),
+            end_time: end_time.toISOString(),
+            entity_ids: entity_ids,
+            minimal_response: true,
+            no_attributes: true
+        });
+
+        if (!history_data) return;
+
+        price_sensors.forEach((sensor, index) => {
+            const entity_history = history_data[sensor.entity_id];
+            if (!entity_history) return;
+
+            const data_points = entity_history
+                .filter(item => item.s && !isNaN(parseFloat(item.s)))
+                .map(item => ({
+                    x: new Date((item.lc || item.lu) * 1000).getTime(),
+                    y: parseFloat(item.s)
+                }))
+                .sort((a, b) => a.x - b.x);
+
+            price_chart.data.datasets[index].data = data_points;
+        });
+
+        price_chart.update('none');
+    } catch (error) {
+        console.error('Error fetching price history:', error);
+    }
+}
+
+function update_price_chart_realtime(entities) {
+    const price_sensors = window.HA_CONFIG.price_sensors || [];
+    if (!price_chart || price_sensors.length === 0) return;
+
+    const now = new Date();
+
+    price_sensors.forEach((sensor, index) => {
+        if (!sensor.entity_id || !entities[sensor.entity_id]) return;
+        const state = parseFloat(entities[sensor.entity_id].state);
+        if (isNaN(state)) return;
+
+        const dataset = price_chart.data.datasets[index];
+        const last = dataset.data.length > 0 ? dataset.data[dataset.data.length - 1] : null;
+
+        if (last && (now.getTime() - last.x) < 60000) {
+            last.x = now.getTime();
+            last.y = state;
+        } else {
+            dataset.data.push({ x: now.getTime(), y: state });
+        }
+    });
+
+    price_chart.update('none');
+}
+
+async function fetch_and_render_solar_history(connection) {
+    if (!window.HA_CONFIG.solar_configured) return;
+    if (typeof solar_production_chart === 'undefined' || !solar_production_chart) return;
+
+    const sensors = window.HA_CONFIG.solar_sensors;
+    const now = new Date();
+    const start_of_day = get_start_time();
+    const end_of_day = get_end_time();
+
+    if (sensors.actual_production) {
+        try {
+            const end_time = end_of_day > now ? now : end_of_day;
+            const history_data = await connection.sendMessagePromise({
+                type: 'history/history_during_period',
+                start_time: start_of_day.toISOString(),
+                end_time: end_time.toISOString(),
+                entity_ids: [sensors.actual_production],
+                minimal_response: true,
+                no_attributes: true
+            });
+
+            if (history_data && history_data[sensors.actual_production]) {
+                history_data[sensors.actual_production].forEach(item => {
+                    const val = parseFloat(item.s);
+                    if (!isNaN(val)) {
+                        solar_production_chart.data.datasets[0].data.push({
+                            x: new Date(item.lu * 1000),
+                            y: val
+                        });
+                    }
+                });
+                solar_production_chart.update('none');
+            }
+        } catch (error) {
+            console.error('Error fetching solar production history:', error);
+        }
+    }
+
+    const est_entity_id = sensors.estimated_actual_production;
+    const offset_entity_id = sensors.estimated_actual_production_offset_day;
+
+    if (est_entity_id) {
+        try {
+            const est_end = end_of_day > now ? now : end_of_day;
+            const est_history = await connection.sendMessagePromise({
+                type: 'history/history_during_period',
+                start_time: start_of_day.toISOString(),
+                end_time: est_end.toISOString(),
+                entity_ids: [est_entity_id],
+                minimal_response: true,
+                no_attributes: true
+            });
+
+            if (est_history && est_history[est_entity_id]) {
+                est_history[est_entity_id].forEach(item => {
+                    const val = parseFloat(item.s);
+                    if (!isNaN(val)) {
+                        solar_production_chart.data.datasets[1].data.push({
+                            x: new Date(item.lu * 1000),
+                            y: val
+                        });
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching forecast history:', error);
+        }
+    }
+
+    if (offset_entity_id) {
+        const offset_start = new Date(start_of_day.getTime() - FULL_DAY_MS);
+        const offset_end = new Date(Math.min(end_of_day.getTime() - FULL_DAY_MS, now.getTime()));
+
+        if (offset_end > offset_start) {
+            try {
+                const offset_history = await connection.sendMessagePromise({
+                    type: 'history/history_during_period',
+                    start_time: offset_start.toISOString(),
+                    end_time: offset_end.toISOString(),
+                    entity_ids: [offset_entity_id],
+                    minimal_response: true,
+                    no_attributes: true
+                });
+
+                if (offset_history && offset_history[offset_entity_id]) {
+                    offset_history[offset_entity_id].forEach(item => {
+                        const val = parseFloat(item.s);
+                        if (!isNaN(val)) {
+                            const shifted_ts = new Date(item.lu * 1000 + FULL_DAY_MS);
+                            if (shifted_ts > now) {
+                                solar_production_chart.data.datasets[1].data.push({
+                                    x: shifted_ts,
+                                    y: val
+                                });
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching offset forecast history:', error);
+            }
+        }
+    }
+
+    solar_production_chart.data.datasets[1].data.sort((a, b) => a.x - b.x);
+    solar_production_chart.update('none');
+}
+
+function update_solar_chart_live(entities) {
+    if (!window.HA_CONFIG.solar_configured) return;
+    if (typeof solar_production_chart === 'undefined' || !solar_production_chart) return;
+
+    const sensors = window.HA_CONFIG.solar_sensors;
+    if (!sensors.actual_production || !entities[sensors.actual_production]) return;
+
+    const val = parseFloat(entities[sensors.actual_production].state);
+    if (isNaN(val)) return;
+
+    if (typeof update_solar_production_chart_realtime === 'function') {
+        update_solar_production_chart_realtime(new Date(), val);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async function () {
+    init_range_controls();
+
+    const start_time = get_start_time();
+    const end_time = get_end_time();
+
     energy_chart = create_energy_chart();
     consumption_chart = create_consumption_chart();
 
-    init_range_controls();
-    reset_range_energy_counters();
+    const price_sensors = window.HA_CONFIG.price_sensors || [];
+    if (price_sensors.length > 0) {
+        price_chart = create_price_chart(price_sensors, start_time, end_time);
+    }
+
+    if (window.HA_CONFIG.solar_configured && typeof create_solar_production_chart === 'function') {
+        create_solar_production_chart();
+        if (typeof update_solar_chart_range === 'function') {
+            update_solar_chart_range(start_time, end_time);
+        }
+    }
+
     reset_today_use_section();
 
     ha_connection = await get_ha_connection();
 
-    await fetch_and_render_history(ha_connection);
-    await fetch_and_render_today_details(ha_connection);
+    await fetch_and_render_statistics(ha_connection);
+    await fetch_and_render_price_history(ha_connection);
+    await fetch_and_render_solar_history(ha_connection);
 
     subscribeEntities(ha_connection, (entities) => {
         update_dashboard(entities);
+        if (is_realtime_window()) {
+            update_price_chart_realtime(entities);
+            update_solar_chart_live(entities);
+        }
     });
 });

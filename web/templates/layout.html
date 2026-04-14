@@ -117,6 +117,10 @@
         </header>
 
         <!-- Main Content -->
+        <div id="nav-loading-overlay" class="nav-loading-overlay">
+            <div class="nav-loading-spinner"></div>
+            <span class="nav-loading-text">Loading…</span>
+        </div>
         <main class="app-main">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}

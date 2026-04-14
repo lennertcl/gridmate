@@ -4,9 +4,9 @@
 
 The home battery dashboard provides a real-time view of a home battery device's state of charge, power flow, operating mode, and historical data. It is accessible directly from the devices overview — when a user clicks on a home battery device, the custom battery dashboard is shown instead of the generic device detail page.
 
-A **Home Battery** link is shown in the top navigation bar under the Dashboard menu. Its destination is determined dynamically via a context processor in `app.py`:
-- If exactly **one** home battery device exists: links directly to that device's detail dashboard page.
-- If **zero or multiple** home battery devices exist: links to the devices dashboard filtered by the `home_battery` type (`/dashboard/devices?type=home_battery`).
+A **Home Battery** link is shown in the top navigation bar under the Dashboard menu. Its destination is determined dynamically via a context processor in `app.py` using `url_for()` to generate proper URLs (including any ingress path prefix when running as a HA addon):
+- If exactly **one** home battery device exists: links directly to that device's detail dashboard page via `url_for('dashboard.device_detail', device_id=...)`.
+- If **zero or multiple** home battery devices exist: links to the devices dashboard filtered by the `home_battery` type via `url_for('dashboard.devices', type='home_battery')`.
 
 This works through the **custom dashboard template** mechanism: the `device_detail` route checks all of a device's type IDs against the `CUSTOM_DASHBOARD_TEMPLATES` map in `dashboard.py`. If a matching template is found, it is rendered instead of the generic `device-detail.html` fallback. For home batteries, the map entry is `'home_battery': 'dashboard/device/home-battery.html'`.
 

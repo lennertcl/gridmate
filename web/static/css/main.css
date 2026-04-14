@@ -3529,3 +3529,40 @@ small {
 .explanation-link:hover {
     text-decoration: underline;
 }
+
+/* ============================================
+   Navigation Loading Overlay
+   ============================================ */
+
+.nav-loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    background: rgba(240, 253, 247, 0.85);
+    backdrop-filter: blur(4px);
+}
+
+.nav-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--color-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: nav_loading_spin 0.8s linear infinite;
+}
+
+.nav-loading-text {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-light);
+    letter-spacing: 0.02em;
+}
+
+@keyframes nav_loading_spin {
+    to { transform: rotate(360deg); }
+}

@@ -83,6 +83,10 @@ Main energy costs dashboard route. Accepts query parameters `period_type`, `mont
 
 ## Frontend
 
+### Loading Overlay
+
+Because the page fetches data from Home Assistant server-side, navigation to the page and between periods can be slow. A global navigation loading overlay is defined in `layout.html` and styled in `main.css`. It is shown automatically by `main.js` whenever the user clicks any internal link or submits a form, providing immediate visual feedback while the server computes the response. The overlay covers the current page until the new page finishes loading and replaces it.
+
 ### Meter Readings Section
 
 Displays a table with four columns:

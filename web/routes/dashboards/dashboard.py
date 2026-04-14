@@ -16,7 +16,7 @@ from web.model.data.data_connector import (
     SolarManager,
 )
 from web.model.energy.cost_calculator import CostCalculationService
-from web.model.energy.models import EnergyPeriodData
+from web.model.energy.models import EnergyPeriodData, VariableComponent
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,34 @@ solar_manager = SolarManager(data_connector)
 def live():
     energy_feed = data_connector.get_energy_feed()
     solar = solar_manager.get_config()
+    contract = energy_contract_manager.get_config()
+
+    price_sensors = []
+    for comp in contract.components:
+        if isinstance(comp, VariableComponent) and comp.variable_price_sensor:
+            price_sensors.append(
+                {
+                    'entity_id': comp.variable_price_sensor,
+                    'name': comp.name,
+                }
+            )
+
+    solar_sensors = {}
+    if solar.is_configured:
+        solar_sensors = {
+            'actual_production': solar.sensors.actual_production,
+            'energy_production_today': solar.sensors.energy_production_today,
+            'energy_production_lifetime': solar.sensors.energy_production_lifetime,
+            'estimated_actual_production': solar.estimation_sensors.estimated_actual_production,
+            'estimated_energy_production_remaining_today': solar.estimation_sensors.estimated_energy_production_remaining_today,
+            'estimated_energy_production_today': solar.estimation_sensors.estimated_energy_production_today,
+            'estimated_energy_production_hour': solar.estimation_sensors.estimated_energy_production_hour,
+            'estimated_actual_production_offset_day': solar.estimation_sensors.estimated_actual_production_offset_day,
+            'estimated_energy_production_offset_day': solar.estimation_sensors.estimated_energy_production_offset_day,
+            'estimated_energy_production_offset_hour': solar.estimation_sensors.estimated_energy_production_offset_hour,
+            'actual_consumption': energy_feed.actual_consumption,
+            'actual_injection': energy_feed.actual_injection,
+        }
 
     ha_sensors = {
         'actual_consumption_sensor': energy_feed.actual_consumption,
@@ -47,7 +75,13 @@ def live():
         'usage_mode': energy_feed.usage_mode,
     }
 
-    return render_template('dashboard/live.html', **ha_sensors)
+    return render_template(
+        'dashboard/live.html',
+        **ha_sensors,
+        price_sensors=price_sensors,
+        solar_sensors=solar_sensors,
+        solar_configured=solar.is_configured,
+    )
 
 
 @dashboard_bp.route('/api/ha/config')

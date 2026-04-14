@@ -7,6 +7,13 @@ const CHART_COLORS = {
     injection: { border: '#00d97e', bg: 'rgba(0, 217, 126, 0.1)' }
 };
 
+const PRICE_COLORS = [
+    { border: '#00d97e', bg: 'rgba(15, 118, 110, 0.1)' },
+    { border: '#1e90ff', bg: 'rgba(0, 153, 255, 0.1)' },
+    { border: '#ff8c42', bg: 'rgba(255, 165, 2, 0.1)' },
+    { border: '#ebe730', bg: 'rgba(255, 165, 2, 0.1)' },
+];
+
 function build_chart_options() {
     return {
         responsive: true,
@@ -17,7 +24,7 @@ function build_chart_options() {
         scales: {
             x: {
                 type: 'time',
-                time: { unit: 'minute', displayFormats: { minute: 'HH:mm' } },
+                time: { displayFormats: { minute: 'HH:mm', hour: 'HH:mm' } },
                 title: { display: true, text: 'Time' }
             },
             y: {
@@ -50,7 +57,7 @@ function create_energy_chart() {
         data: {
             datasets: [
                 build_dataset('Usage', 'usage'),
-                build_dataset('Production', 'production')
+                build_dataset('Production', 'production') 
             ]
         },
         options: build_chart_options()
@@ -186,4 +193,50 @@ function update_chart_realtime(chart, timestamp, data_points, start_time) {
         }
     });
     chart.update('none');
+}
+
+function create_price_chart(price_sensors, start_time, end_time) {
+    const ctx = document.getElementById('priceChart');
+    if (!ctx || !price_sensors || price_sensors.length === 0) return null;
+
+    const datasets = price_sensors.map((sensor, index) => {
+        const color = PRICE_COLORS[index % PRICE_COLORS.length];
+        return {
+            label: sensor.name,
+            data: [],
+            borderColor: color.border,
+            backgroundColor: color.bg,
+            tension: 0,
+            fill: false,
+            stepped: 'after',
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            borderWidth: 2,
+        };
+    });
+
+    return new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: { datasets: datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: { legend: { position: 'top' } },
+            elements: { point: { radius: 3 } },
+            scales: {
+                x: {
+                    type: 'time',
+                    time: { unit: 'hour', displayFormats: { hour: 'HH:mm' }, tooltipFormat: 'HH:mm' },
+                    min: start_time,
+                    max: end_time,
+                    title: { display: true, text: 'Time' }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Price (€/kWh)' }
+                }
+            }
+        }
+    });
 }

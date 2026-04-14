@@ -2,7 +2,7 @@
 ### General
 - Always use snake_casing everywhere
 - All data transmission happens in JSON format
-- Unless there's a good technical reason, all imports should be at the top of the file, not inside functions or classes 
+- Unless there's a good technical reason, all imports MUST be at the top of the file, not inside functions or classes 
 - Prefer .env and .env.local variables for configuration over constants in the code for development setup related stuff
 - ALWAYS run `./run-checks.sh` after making changes and address all reported issues before considering the task complete
 - Prefer asking the user using 'vscode_askQuestions' over making assumptions when requirements are unclear. 

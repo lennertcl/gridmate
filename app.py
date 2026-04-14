@@ -89,15 +89,16 @@ def server_error(error):
 
 @app.context_processor
 def inject_config():
-    """Inject configuration into template context"""
+    from flask import url_for as flask_url_for
+
     from web.model.data.data_connector import DataConnector, DeviceManager
 
     dm = DeviceManager(DataConnector())
     home_batteries = dm.get_devices_by_type('home_battery')
     if len(home_batteries) == 1:
-        battery_nav_url = f'/dashboard/device/{home_batteries[0].device_id}'
+        battery_nav_url = flask_url_for('dashboard.device_detail', device_id=home_batteries[0].device_id)
     else:
-        battery_nav_url = '/dashboard/devices?type=home_battery'
+        battery_nav_url = flask_url_for('dashboard.devices', type='home_battery')
     return {
         'app_name': 'GridMate',
         'app_version': '1.0.0',
