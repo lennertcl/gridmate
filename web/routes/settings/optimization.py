@@ -9,7 +9,7 @@ from web.model.data.data_connector import DataConnector
 from web.model.data.ha_connector import HAConnector
 from web.model.optimization.emhass_connector import EmhassConnector, resolve_emhass_url
 from web.model.optimization.ha_automation_manager import HAAutomationManager
-from web.model.optimization.models import LoadPowerConfig, LoadPowerScheduleBlock
+from web.model.optimization.models import LoadPowerConfig, LoadPowerScheduleBlock, WeeklySchedule
 from web.model.optimization.optimization_manager import OptimizationManager
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,13 @@ def optimization_settings():
 
         config.load_power_config = load_power_config
 
+        weekly_schedule_json = request.form.get('weekly_schedule_data', '{}')
+        try:
+            schedule_data = json.loads(weekly_schedule_json)
+            config.weekly_schedule = WeeklySchedule.from_dict(schedule_data)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
         optimization_manager.save_config(config)
         optimization_manager.sync_config_to_emhass(config)
 
@@ -76,11 +83,26 @@ def optimization_settings():
         form.load_power_source_type.data = config.load_power_config.source_type
         form.load_power_sensor_entity.data = config.load_power_config.sensor_entity
 
+    deferrable_loads = optimization_manager.get_deferrable_loads()
+    devices = data_connector.get_devices()
+    device_names = {d.device_id: d.name for d in devices}
+    device_defaults = {
+        load.device_id: {
+            'earliest_start_time': load.earliest_start_time,
+            'latest_end_time': load.latest_end_time,
+        }
+        for load in deferrable_loads
+    }
+
     return render_template(
         'settings/optimization.html',
         form=form,
         config=config,
         schedule_blocks_json=json.dumps([b.to_dict() for b in config.load_power_config.schedule_blocks]),
+        weekly_schedule_json=json.dumps(config.weekly_schedule.to_dict()),
+        deferrable_loads=deferrable_loads,
+        device_names=device_names,
+        device_defaults_json=json.dumps(device_defaults),
         prefill_emhass_url=prefill_emhass_url,
         is_addon_mode=not is_local_dev,
     )

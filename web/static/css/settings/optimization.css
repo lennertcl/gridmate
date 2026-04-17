@@ -3,6 +3,7 @@
     align-items: center;
     gap: 1rem;
     margin-bottom: 1rem;
+    flex-wrap: wrap;
 }
 
 .status-indicator {
@@ -42,16 +43,18 @@
 }
 
 .schedule-block-row .form-control {
-    width: auto;
+    min-width: fit-content;
 }
 
 .schedule-block-row .block-start,
 .schedule-block-row .block-end {
-    width: 130px;
+    width: 7rem;
+    min-width: fit-content;
 }
 
 .schedule-block-row .block-power {
-    width: 100px;
+    width: 6rem;
+    min-width: fit-content;
 }
 
 .block-separator {
@@ -96,4 +99,150 @@
     .schedule-block-row .block-end {
         width: 100px;
     }
+}
+
+.weekly-schedule-wrapper {
+    overflow-x: auto;
+    margin-bottom: 1rem;
+}
+
+.weekly-schedule-table {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.weekly-schedule-table th {
+    padding: 0.5rem 0.4rem;
+    text-align: center;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-light);
+    font-weight: 600;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.weekly-schedule-table th.ws-device-col {
+    text-align: left;
+    min-width: 120px;
+}
+
+.ws-device-row td {
+    padding: 0.4rem;
+    text-align: center;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.ws-device-name {
+    text-align: left !important;
+    font-weight: 600;
+    color: var(--color-text);
+    white-space: nowrap;
+}
+
+.ws-device-disabled .ws-device-name {
+    color: var(--color-text-light);
+}
+
+.ws-device-disabled .ws-cell {
+    pointer-events: none;
+    opacity: 0.4;
+}
+
+.ws-cell {
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.ws-cell:hover {
+    background: rgba(0, 217, 126, 0.06);
+}
+
+.ws-cell.ws-cell-active {
+    background: rgba(0, 217, 126, 0.12);
+}
+
+.ws-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 700;
+    transition: var(--transition);
+}
+
+.ws-badge-empty {
+    background: rgba(100, 116, 139, 0.08);
+    color: var(--color-text-light);
+}
+
+.ws-badge-active {
+    background: rgba(0, 217, 126, 0.15);
+    color: var(--color-primary-dark);
+}
+
+.ws-editor {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.ws-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.ws-editor-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--color-text);
+}
+
+.ws-editor-body {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.ws-toggle-col {
+    width: 50px;
+    text-align: center !important;
+}
+
+.ws-device-toggle {
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    .weekly-schedule-table th,
+    .ws-device-row td {
+        padding: 0.3rem 0.25rem;
+        font-size: 0.75rem;
+    }
+
+    .ws-badge {
+        min-width: 20px;
+        height: 20px;
+        font-size: 0.7rem;
+    }
+
+    .schedule-block-row .block-start,
+    .schedule-block-row .block-end,
+    .schedule-block-row .block-power {
+        width: 12rem;
+        max-width: 100%;
+        min-width: fit-content;
+    }
+
+
 }

@@ -142,7 +142,10 @@
             {% endif %}
             {% for load in deferrable_loads %}
             {% set schedule = result.device_schedules.get(load.device_id) %}
-            <div class="managed-device-card">
+            {% set day_entry = today_schedule.get(load.device_id) %}
+            {% set override = overrides.get(load.device_id) %}
+            {% set defaults = device_defaults.get(load.device_id, {}) %}
+            <div class="managed-device-card" data-device-id="{{ load.device_id }}">
                 <div class="managed-device-header">
                     <div class="managed-device-info">
                         <span class="managed-device-name">
@@ -160,7 +163,7 @@
                         {% if schedule and schedule.total_energy_kwh > 0 %}
                         <span class="managed-device-energy">{{ "%.2f" | format(schedule.total_energy_kwh) }} kWh</span>
                         {% endif %}
-                        <label class="toggle-label toggle-sm">
+                        <label class="toggle-label toggle-sm" title="Include in scheduling">
                             <input type="checkbox" class="toggle-input" data-device="{{ load.device_id }}"
                                    {% if load.enabled %}checked{% endif %}
                                    onchange="toggleDeviceOptimization(this, '{{ load.device_id }}')">
@@ -168,6 +171,63 @@
                         </label>
                     </div>
                 </div>
+
+                <div class="device-schedule-info">
+                    {% if day_entry %}
+                    <span class="schedule-summary">
+                        <i class="fas fa-calendar-day"></i>
+                        {% if day_entry.num_cycles > 0 %}
+                            {{ day_entry.num_cycles }} cycle{{ 's' if day_entry.num_cycles > 1 else '' }}{% if day_entry.num_cycles > 1 and day_entry.hours_between_runs > 0 %}, {{ day_entry.hours_between_runs }}h between runs{% endif %}
+                        {% else %}
+                            Not scheduled today
+                        {% endif %}
+                    </span>
+                    {% endif %}
+                    <span class="schedule-next-run"><i class="fas fa-clock"></i> Next optimization at {{ next_run_time }}</span>
+                </div>
+
+                {% if override %}
+                <div class="override-banner">
+                    <span class="override-label"><i class="fas fa-bolt"></i> Override active</span>
+                    <span class="override-detail">
+                        {% if override.num_cycles == 0 %}Disabled{% else %}{{ override.num_cycles }} cycle{{ 's' if override.num_cycles > 1 else '' }}{% if override.num_cycles > 1 and override.hours_between_runs > 0 %}, {{ override.hours_between_runs }}h between runs{% endif %}{% endif %}
+                    </span>
+                    <button class="btn btn-secondary btn-xs" onclick="clearDeviceOverride('{{ load.device_id }}')">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                </div>
+                {% endif %}
+
+                <div class="device-override-controls" id="override-controls-{{ load.device_id }}" style="display: none;">
+                    <div class="cycle-editor">
+                        <div class="cycle-editor-field">
+                            <label>Cycles</label>
+                            <input type="number" class="form-control override-num-cycles" data-device="{{ load.device_id }}" min="0" max="5" step="1" value="{{ override.num_cycles if override else (day_entry.num_cycles if day_entry else 1) }}">
+                        </div>
+                        <div class="cycle-editor-field">
+                            <label>Hours between runs</label>
+                            <input type="number" class="form-control override-gap" data-device="{{ load.device_id }}" min="0" max="12" step="0.5" value="{{ override.hours_between_runs if override else (day_entry.hours_between_runs if day_entry else 0) }}">
+                        </div>
+                        <div class="cycle-editor-field">
+                            <label>Earliest start</label>
+                            <input type="time" class="form-control override-start" data-device="{{ load.device_id }}" value="{{ override.earliest_start_time if override and override.earliest_start_time else defaults.get('earliest_start_time', '') }}">
+                        </div>
+                        <div class="cycle-editor-field">
+                            <label>Latest end</label>
+                            <input type="time" class="form-control override-end" data-device="{{ load.device_id }}" value="{{ override.latest_end_time if override and override.latest_end_time else defaults.get('latest_end_time', '') }}">
+                        </div>
+                        <div class="cycle-editor-actions">
+                            <button class="btn btn-primary btn-sm" onclick="setDeviceOverride('{{ load.device_id }}')">Apply</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="managed-device-footer">
+                    <button class="btn-text override-toggle-btn" onclick="toggleOverrideControls('{{ load.device_id }}')">
+                        <i class="fas fa-sliders-h"></i> Override next optimization
+                    </button>
+                </div>
+
                 {% if schedule and schedule.schedule_entries %}
                 <div class="device-schedule-blocks">
                     {% for entry in schedule.schedule_entries %}
@@ -217,6 +277,7 @@
 <script>
 const OPTIMIZATION_RESULT = {{ result.to_dict() | tojson if result else 'null' }};
 const DEVICE_NAMES = {{ device_names | tojson }};
+const DEVICE_DEFAULTS = {{ device_defaults | tojson }};
 </script>
 <script src="{{ url_for('static', filename='js/optimization-dashboard.js') }}"></script>
 {% endif %}

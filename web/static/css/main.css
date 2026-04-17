@@ -3566,3 +3566,68 @@ small {
 @keyframes nav_loading_spin {
     to { transform: rotate(360deg); }
 }
+
+.cycle-editor {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.cycle-editor-field {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.cycle-editor-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.cycle-editor-field label {
+    font-size: 0.82rem;
+    color: var(--color-text-light);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.cycle-editor-field .form-control {
+    width: 6.25rem;
+    min-width: fit-content;
+}
+
+.cycle-editor-field input[type="time"].form-control {
+    width: 7.5rem;
+}
+
+@media (max-width: 768px) {
+    .cycle-editor {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .cycle-editor-field {
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+    }
+
+    .cycle-editor-field .form-control {
+        width: 12rem;
+        max-width: 100%;
+        min-width: fit-content;
+    }
+
+    .cycle-editor-actions {
+        width: 100%;
+    }
+
+    .cycle-editor-actions .btn {
+        flex: 1 1 12rem;
+        justify-content: center;
+    }
+}

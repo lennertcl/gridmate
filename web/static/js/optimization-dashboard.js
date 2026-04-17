@@ -258,3 +258,64 @@ function toggleDeviceOptimization(checkbox, deviceId) {
         checkbox.checked = !checkbox.checked;
     });
 }
+
+function toggleOverrideControls(deviceId) {
+    var el = document.getElementById('override-controls-' + deviceId);
+    if (!el) return;
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function setDeviceOverride(deviceId) {
+    var card = document.querySelector('[data-device-id="' + deviceId + '"]');
+    if (!card) return;
+
+    var cyclesInput = card.querySelector('.override-num-cycles');
+    var gapInput = card.querySelector('.override-gap');
+    var startInput = card.querySelector('.override-start');
+    var endInput = card.querySelector('.override-end');
+
+    var defaults = (typeof DEVICE_DEFAULTS !== 'undefined' && DEVICE_DEFAULTS[deviceId]) || {};
+
+    var startTime = startInput ? startInput.value : '';
+    var endTime = endInput ? endInput.value : '';
+    if (startTime === defaults.earliest_start_time) startTime = '';
+    if (endTime === defaults.latest_end_time) endTime = '';
+
+    var body = {
+        num_cycles: cyclesInput ? parseInt(cyclesInput.value) || 0 : 1,
+        hours_between_runs: gapInput ? parseFloat(gapInput.value) || 0 : 0,
+        earliest_start_time: startTime,
+        latest_end_time: endTime,
+    };
+
+    fetch(baseUrl('/api/optimization/device/' + deviceId + '/override'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            window.location.reload();
+        }
+    })
+    .catch(function(err) {
+        alert('Failed to set override: ' + err.message);
+    });
+}
+
+function clearDeviceOverride(deviceId) {
+    fetch(baseUrl('/api/optimization/device/' + deviceId + '/clear-override'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            window.location.reload();
+        }
+    })
+    .catch(function(err) {
+        alert('Failed to clear override: ' + err.message);
+    });
+}

@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     initScheduleBlocks();
+    initWeeklySchedule();
 });
 
 function checkEmhassConnection() {
@@ -155,4 +156,233 @@ function fetchEmhassConfig() {
         });
 }
 
+var WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+var wsScheduleData = {};
+var wsActiveCell = null;
 
+function initWeeklySchedule() {
+    var hidden = document.getElementById('weekly_schedule_data');
+    if (!hidden) return;
+
+    try {
+        wsScheduleData = JSON.parse(hidden.value) || {};
+    } catch {
+        wsScheduleData = {};
+    }
+
+    renderAllBadges();
+
+    var cells = document.querySelectorAll('.ws-cell');
+    cells.forEach(function(cell) {
+        cell.addEventListener('click', function() {
+            openCellEditor(cell);
+        });
+    });
+
+    var closeBtn = document.getElementById('ws-editor-close');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeEditor);
+    }
+
+    var applyBtn = document.getElementById('ws-editor-apply');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', saveCellFromEditor);
+    }
+
+    var copyAllBtn = document.getElementById('ws-editor-copy-all');
+    if (copyAllBtn) {
+        copyAllBtn.addEventListener('click', applyToAllDays);
+    }
+
+    var toggles = document.querySelectorAll('.ws-opt-toggle');
+    toggles.forEach(function(toggle) {
+        toggle.addEventListener('change', function() {
+            var deviceId = toggle.getAttribute('data-device');
+            toggleDeviceOpt(toggle, deviceId);
+        });
+    });
+}
+
+function toggleDeviceOpt(checkbox, deviceId) {
+    fetch(baseUrl('/api/optimization/device/' + deviceId + '/toggle'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            var row = document.querySelector('.ws-device-row[data-device-id="' + deviceId + '"]');
+            if (row) {
+                if (data.opt_enabled) {
+                    row.classList.remove('ws-device-disabled');
+                } else {
+                    row.classList.add('ws-device-disabled');
+                }
+                renderAllBadges();
+            }
+        } else {
+            checkbox.checked = !checkbox.checked;
+        }
+    })
+    .catch(function() {
+        checkbox.checked = !checkbox.checked;
+    });
+}
+
+function getEntry(day, deviceId) {
+    var dayEntries = wsScheduleData[day] || [];
+    for (var i = 0; i < dayEntries.length; i++) {
+        if (dayEntries[i].device_id === deviceId) {
+            return dayEntries[i];
+        }
+    }
+    return null;
+}
+
+function setEntry(day, deviceId, entry) {
+    if (!wsScheduleData[day]) {
+        wsScheduleData[day] = [];
+    }
+    var dayEntries = wsScheduleData[day];
+    for (var i = 0; i < dayEntries.length; i++) {
+        if (dayEntries[i].device_id === deviceId) {
+            dayEntries[i] = entry;
+            return;
+        }
+    }
+    dayEntries.push(entry);
+}
+
+function renderAllBadges() {
+    var cells = document.querySelectorAll('.ws-cell');
+    cells.forEach(function(cell) {
+        var day = cell.getAttribute('data-day');
+        var deviceId = cell.getAttribute('data-device');
+        renderBadge(cell, day, deviceId);
+    });
+}
+
+function renderBadge(cell, day, deviceId) {
+    var entry = getEntry(day, deviceId);
+    var badge = cell.querySelector('.ws-badge');
+    if (!badge) return;
+
+    var row = cell.closest('.ws-device-row');
+    var isDeviceDisabled = row && row.classList.contains('ws-device-disabled');
+    var numCycles = entry ? entry.num_cycles : 1;
+
+    if (isDeviceDisabled || numCycles <= 0) {
+        badge.textContent = numCycles;
+        badge.className = 'ws-badge ws-badge-empty';
+    } else {
+        badge.textContent = numCycles;
+        badge.className = 'ws-badge ws-badge-active';
+        if (numCycles > 1 && entry && entry.hours_between_runs > 0) {
+            badge.title = numCycles + ' cycles, ' + entry.hours_between_runs + 'h between runs';
+        } else {
+            badge.title = numCycles + ' cycle(s)';
+        }
+    }
+}
+
+function openCellEditor(cell) {
+    var row = cell.closest('.ws-device-row');
+    if (row && row.classList.contains('ws-device-disabled')) return;
+
+    var day = cell.getAttribute('data-day');
+    var deviceId = cell.getAttribute('data-device');
+    var entry = getEntry(day, deviceId);
+
+    if (wsActiveCell) {
+        wsActiveCell.classList.remove('ws-cell-active');
+    }
+    cell.classList.add('ws-cell-active');
+    wsActiveCell = cell;
+
+    var deviceName = row ? row.querySelector('.ws-device-name').textContent.trim().split('\n')[0].trim() : deviceId;
+    var dayLabel = day.charAt(0).toUpperCase() + day.slice(1);
+
+    var titleEl = document.getElementById('ws-editor-title');
+    titleEl.textContent = deviceName + ' — ' + dayLabel;
+
+    var cyclesInput = document.getElementById('ws-editor-num-cycles');
+    var gapInput = document.getElementById('ws-editor-gap');
+    var startInput = document.getElementById('ws-editor-start');
+    var endInput = document.getElementById('ws-editor-end');
+
+    var defaults = (typeof DEVICE_DEFAULTS !== 'undefined' && DEVICE_DEFAULTS[deviceId]) || {};
+
+    cyclesInput.value = entry ? entry.num_cycles : 1;
+    gapInput.value = entry ? entry.hours_between_runs : 0;
+    startInput.value = (entry && entry.earliest_start_time) ? entry.earliest_start_time : (defaults.earliest_start_time || '');
+    endInput.value = (entry && entry.latest_end_time) ? entry.latest_end_time : (defaults.latest_end_time || '');
+
+    var editor = document.getElementById('ws-editor');
+    editor.style.display = 'block';
+}
+
+function closeEditor() {
+    var editor = document.getElementById('ws-editor');
+    editor.style.display = 'none';
+    if (wsActiveCell) {
+        wsActiveCell.classList.remove('ws-cell-active');
+        wsActiveCell = null;
+    }
+}
+
+function saveCellFromEditor() {
+    if (!wsActiveCell) return;
+
+    var day = wsActiveCell.getAttribute('data-day');
+    var deviceId = wsActiveCell.getAttribute('data-device');
+
+    setEntry(day, deviceId, buildEditorEntry(deviceId));
+    renderBadge(wsActiveCell, day, deviceId);
+    syncWeeklyScheduleHidden();
+}
+
+function buildEditorEntry(deviceId) {
+    var numCycles = parseInt(document.getElementById('ws-editor-num-cycles').value) || 0;
+    var gap = parseFloat(document.getElementById('ws-editor-gap').value) || 0;
+    var startTime = document.getElementById('ws-editor-start').value || '';
+    var endTime = document.getElementById('ws-editor-end').value || '';
+
+    var defaults = (typeof DEVICE_DEFAULTS !== 'undefined' && DEVICE_DEFAULTS[deviceId]) || {};
+    if (startTime === defaults.earliest_start_time) startTime = '';
+    if (endTime === defaults.latest_end_time) endTime = '';
+
+    return {
+        device_id: deviceId,
+        num_cycles: numCycles,
+        hours_between_runs: gap,
+        earliest_start_time: startTime,
+        latest_end_time: endTime,
+    };
+}
+
+function applyToAllDays() {
+    if (!wsActiveCell) return;
+
+    var deviceId = wsActiveCell.getAttribute('data-device');
+    var entry = buildEditorEntry(deviceId);
+
+    for (var i = 0; i < WEEKDAYS.length; i++) {
+        setEntry(WEEKDAYS[i], deviceId, {
+            device_id: deviceId,
+            num_cycles: entry.num_cycles,
+            hours_between_runs: entry.hours_between_runs,
+            earliest_start_time: entry.earliest_start_time,
+            latest_end_time: entry.latest_end_time,
+        });
+    }
+
+    renderAllBadges();
+    syncWeeklyScheduleHidden();
+}
+
+function syncWeeklyScheduleHidden() {
+    var hidden = document.getElementById('weekly_schedule_data');
+    if (hidden) {
+        hidden.value = JSON.stringify(wsScheduleData);
+    }
+}

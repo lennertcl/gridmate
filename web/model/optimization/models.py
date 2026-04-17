@@ -1,6 +1,69 @@
+import calendar
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional
+
+WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+
+
+@dataclass
+class DeviceDayEntry:
+    device_id: str = ''
+    num_cycles: int = 1
+    hours_between_runs: float = 0.0
+    earliest_start_time: str = ''
+    latest_end_time: str = ''
+
+    def to_dict(self) -> Dict:
+        return {
+            'device_id': self.device_id,
+            'num_cycles': self.num_cycles,
+            'hours_between_runs': self.hours_between_runs,
+            'earliest_start_time': self.earliest_start_time,
+            'latest_end_time': self.latest_end_time,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'DeviceDayEntry':
+        num_cycles = int(data.get('num_cycles', data.get('num_runs', 1)))
+        if 'enabled' in data and not data['enabled']:
+            num_cycles = 0
+        return cls(
+            device_id=data.get('device_id', ''),
+            num_cycles=num_cycles,
+            hours_between_runs=float(data.get('hours_between_runs', 0.0)),
+            earliest_start_time=data.get('earliest_start_time', ''),
+            latest_end_time=data.get('latest_end_time', ''),
+        )
+
+
+@dataclass
+class WeeklySchedule:
+    days: Dict[str, List[DeviceDayEntry]] = field(default_factory=dict)
+
+    def get_today(self) -> List[DeviceDayEntry]:
+        day_name = calendar.day_name[datetime.now().weekday()].lower()
+        return self.days.get(day_name, [])
+
+    def get_day(self, day_name: str) -> List[DeviceDayEntry]:
+        return self.days.get(day_name.lower(), [])
+
+    def get_device_entry_for_today(self, device_id: str) -> Optional[DeviceDayEntry]:
+        for entry in self.get_today():
+            if entry.device_id == device_id:
+                return entry
+        return None
+
+    def to_dict(self) -> Dict:
+        return {day: [e.to_dict() for e in entries] for day, entries in self.days.items()}
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'WeeklySchedule':
+        days = {}
+        for day, entries in data.items():
+            if day.lower() in WEEKDAYS:
+                days[day.lower()] = [DeviceDayEntry.from_dict(e) for e in entries]
+        return cls(days=days)
 
 
 @dataclass
@@ -187,6 +250,8 @@ class OptimizationConfig:
     max_grid_export_w: int = 9000
     actuation_mode: str = 'manual'
     load_power_config: LoadPowerConfig = field(default_factory=LoadPowerConfig)
+    weekly_schedule: WeeklySchedule = field(default_factory=WeeklySchedule)
+    next_run_overrides: List[DeviceDayEntry] = field(default_factory=list)
 
     last_optimization_run: Optional[datetime] = None
     last_optimization_status: str = ''
@@ -201,6 +266,8 @@ class OptimizationConfig:
             'max_grid_export_w': self.max_grid_export_w,
             'actuation_mode': self.actuation_mode,
             'load_power_config': self.load_power_config.to_dict(),
+            'weekly_schedule': self.weekly_schedule.to_dict(),
+            'next_run_overrides': [o.to_dict() for o in self.next_run_overrides],
             'last_optimization_run': self.last_optimization_run.isoformat()
             if isinstance(self.last_optimization_run, datetime)
             else self.last_optimization_run,
@@ -232,6 +299,8 @@ class OptimizationConfig:
             max_grid_export_w=int(data.get('max_grid_export_w', 9000)),
             actuation_mode=data.get('actuation_mode', 'manual'),
             load_power_config=LoadPowerConfig.from_dict(load_power_raw),
+            weekly_schedule=WeeklySchedule.from_dict(data.get('weekly_schedule', {})),
+            next_run_overrides=[DeviceDayEntry.from_dict(o) for o in data.get('next_run_overrides', [])],
             last_optimization_run=_parse_dt(data.get('last_optimization_run')),
             last_optimization_status=data.get('last_optimization_status', ''),
             last_updated=_parse_dt(data.get('last_updated')) or datetime.now(),

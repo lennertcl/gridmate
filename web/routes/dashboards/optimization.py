@@ -5,7 +5,7 @@ from flask import Blueprint, jsonify, render_template, request
 from web.model.data.data_connector import DataConnector
 from web.model.data.ha_connector import HAConnector
 from web.model.optimization.emhass_connector import EmhassConnector, resolve_emhass_url
-from web.model.optimization.models import DeviceSchedule, ScheduleEntry
+from web.model.optimization.models import DeviceDayEntry, DeviceSchedule, ScheduleEntry
 from web.model.optimization.optimization_manager import OptimizationManager
 from web.model.optimization.scheduler import (
     OptimizationDisabledError,
@@ -33,6 +33,13 @@ def optimization_dashboard():
     logger.debug('Latest optimization result: %s', result)
 
     device_names = {d.device_id: d.name for d in devices}
+    device_defaults = {
+        load.device_id: {
+            'earliest_start_time': load.earliest_start_time,
+            'latest_end_time': load.latest_end_time,
+        }
+        for load in deferrable_loads
+    }
 
     if result:
         for device_id, schedule in result.device_schedules.items():
@@ -41,6 +48,10 @@ def optimization_dashboard():
 
     battery_schedule = _build_battery_schedule(result) if result else None
 
+    today_schedule = {e.device_id: e for e in config.weekly_schedule.get_today()}
+    overrides = {o.device_id: o for o in config.next_run_overrides}
+    next_run_time = config.dayahead_schedule_time
+
     return render_template(
         'dashboard/optimization.html',
         config=config,
@@ -48,7 +59,11 @@ def optimization_dashboard():
         deferrable_loads=deferrable_loads,
         managed_battery=managed_battery,
         device_names=device_names,
+        device_defaults=device_defaults,
         battery_schedule=battery_schedule,
+        today_schedule=today_schedule,
+        overrides=overrides,
+        next_run_time=next_run_time,
     )
 
 
@@ -82,11 +97,11 @@ def optimization_schedule():
 def run_optimization():
     logger.debug('Running optimization')
     config = optimization_manager.get_config()
-    deferrable_loads = optimization_manager.get_enabled_deferrable_loads()
+    deferrable_loads, load_mapping = optimization_manager.get_effective_deferrable_loads(config)
     ha_connector = HAConnector()
     emhass_url = resolve_emhass_url(config.emhass_url)
     connector = EmhassConnector(emhass_url, ha_connector, data_connector)
-    scheduler = OptimizationScheduler(connector, ha_connector)
+    scheduler = OptimizationScheduler(connector, ha_connector, optimization_manager=optimization_manager)
 
     data = request.get_json(silent=True) or {}
     force_type = data.get('type')
@@ -94,6 +109,7 @@ def run_optimization():
 
     try:
         config.deferrable_loads = deferrable_loads
+        config.load_mapping = load_mapping
         sync_ok = optimization_manager.sync_config_to_emhass(config)
         if not sync_ok:
             logger.error('Failed to sync EMHASS config before optimization run')
@@ -121,6 +137,40 @@ def run_optimization():
         config.last_optimization_status = f'error: {str(e)}'
         optimization_manager.save_config(config)
         return jsonify({'error': str(e)}), 500
+
+
+@dashboard_optimization_bp.route('/api/optimization/device/<device_id>/override', methods=['POST'])
+def set_device_override(device_id):
+    config = optimization_manager.get_config()
+    data = request.get_json(silent=True) or {}
+
+    num_cycles = int(data.get('num_cycles', 1))
+    hours_between = float(data.get('hours_between_runs', 0.0))
+    earliest_start = data.get('earliest_start_time', '')
+    latest_end = data.get('latest_end_time', '')
+
+    override = DeviceDayEntry(
+        device_id=device_id,
+        num_cycles=num_cycles,
+        hours_between_runs=hours_between,
+        earliest_start_time=earliest_start,
+        latest_end_time=latest_end,
+    )
+
+    config.next_run_overrides = [o for o in config.next_run_overrides if o.device_id != device_id]
+    config.next_run_overrides.append(override)
+    optimization_manager.save_config(config)
+
+    return jsonify({'success': True, 'device_id': device_id, 'override': override.to_dict()})
+
+
+@dashboard_optimization_bp.route('/api/optimization/device/<device_id>/clear-override', methods=['POST'])
+def clear_device_override(device_id):
+    config = optimization_manager.get_config()
+    config.next_run_overrides = [o for o in config.next_run_overrides if o.device_id != device_id]
+    optimization_manager.save_config(config)
+
+    return jsonify({'success': True, 'device_id': device_id})
 
 
 def _build_battery_schedule(result):

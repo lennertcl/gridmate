@@ -58,6 +58,7 @@ export default [
                 baseUrl: 'readonly',
                 OPTIMIZATION_RESULT: 'readonly',
                 DEVICE_NAMES: 'readonly',
+                DEVICE_DEFAULTS: 'readonly',
             }
         },
         rules: sharedRules,
@@ -81,6 +82,7 @@ export default [
                 baseUrl: 'readonly',
                 OPTIMIZATION_RESULT: 'readonly',
                 DEVICE_NAMES: 'readonly',
+                DEVICE_DEFAULTS: 'readonly',
             }
         },
         rules: moduleRules,

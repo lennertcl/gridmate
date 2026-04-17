@@ -9,6 +9,7 @@ from web.model.optimization.models import (
     OptimizationConfig,
     OptimizationResult,
 )
+from web.model.optimization.optimization_manager import OptimizationManager
 from web.model.optimization.result_store import OptimizationResultStore
 
 logger = logging.getLogger(__name__)
@@ -24,11 +25,16 @@ class OptimizerUnavailableError(Exception):
 
 class OptimizationScheduler:
     def __init__(
-        self, connector: OptimizerConnector, ha_connector: HAConnector, result_store: OptimizationResultStore = None
+        self,
+        connector: OptimizerConnector,
+        ha_connector: HAConnector,
+        result_store: OptimizationResultStore = None,
+        optimization_manager: OptimizationManager = None,
     ):
         self.connector = connector
         self.ha = ha_connector
         self.result_store = result_store or OptimizationResultStore()
+        self.optimization_manager = optimization_manager
 
     def run_scheduled_optimization(
         self, config: OptimizationConfig, deferrable_loads: list = None, force_type: str = None
@@ -57,6 +63,9 @@ class OptimizationScheduler:
 
         config.last_optimization_run = datetime.now()
         config.last_optimization_status = 'success'
+
+        if self.optimization_manager and config.next_run_overrides:
+            self.optimization_manager.clear_next_run_overrides(config)
 
         return result
 

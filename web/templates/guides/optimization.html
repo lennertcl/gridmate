@@ -105,6 +105,44 @@
         </div>
 
         <div class="explanation-section">
+            <h4><i class="fas fa-calendar-week"></i> Weekly Device Schedule</h4>
+            <div class="explanation-content">
+                <p>The weekly schedule lets you define per-day optimization settings for each deferrable load device. Configure exactly which days each device should run, how many cycles per day, and optionally override the time window.</p>
+                <dl>
+                    <dt>Schedule Table</dt>
+                    <dd>The table shows devices as rows and days of the week (Mon&ndash;Sun) as columns. Each row includes an <em>opt_enabled</em> toggle (the master switch for including the device in optimization). Click any cell to edit the schedule for that device on that day. Each cell shows a badge with the number of cycles: green when the device is active, grey when disabled.</dd>
+                    <dt>Cycles</dt>
+                    <dd>How many times the device should be powered on that day (0&ndash;5). Setting cycles to 0 disables the device for that day. When set to more than 1, the device&rsquo;s time window is split into non-overlapping sub-windows so EMHASS schedules each cycle separately.</dd>
+                    <dt>Hours Between Runs</dt>
+                    <dd>Minimum gap (in hours) between consecutive cycles. Only relevant when cycles is greater than 1. If the time window is too short to fit all cycles with the requested gap, GridMate falls back to a single cycle.</dd>
+                    <dt>Earliest Start / Latest End</dt>
+                    <dd>Optionally override the device&rsquo;s default time window for a specific day. The fields are pre-filled with the device defaults. Leave unchanged to use the device&rsquo;s configured values.</dd>
+                    <dt>Apply Button</dt>
+                    <dd>Click <em>Apply</em> in the cell editor to confirm your changes. Changes are not saved until you click Apply.</dd>
+                    <dt>Apply to All Days</dt>
+                    <dd>Use the <i class="fas fa-copy"></i> button to copy Monday&rsquo;s configuration to all other days of the week for that device.</dd>
+                    <dt>No Schedule Configured</dt>
+                    <dd>If no weekly schedule is set, every enabled device defaults to one cycle per day using its full time window. This preserves backward compatibility.</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="explanation-section">
+            <h4><i class="fas fa-exchange-alt"></i> Dashboard Overrides</h4>
+            <div class="explanation-content">
+                <p>The optimization dashboard shows today&rsquo;s schedule and lets you override the next optimization without changing the weekly schedule permanently.</p>
+                <dl>
+                    <dt>Today&rsquo;s Schedule</dt>
+                    <dd>Each managed device card shows the number of cycles and gap configured for today (from the weekly schedule). If no schedule is set, it defaults to one cycle.</dd>
+                    <dt>Override Next Optimization</dt>
+                    <dd>Click <em>Override next optimization</em> on a device card to temporarily change its settings for the next optimization run only. You can change the number of cycles (set to 0 to disable), adjust the gap between runs, and override the earliest start and latest end times. The same editor fields are used as on the settings page. The override is shown as a yellow banner on the device card.</dd>
+                    <dt>Clearing Overrides</dt>
+                    <dd>Click the &times; button on the override banner to remove it. Overrides are also cleared automatically after the next optimization run completes.</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="explanation-section">
             <h4><i class="fas fa-file-code"></i> EMHASS Configuration</h4>
             <div class="explanation-content">
                 <p>GridMate pushes a complete configuration to EMHASS via the <code>set-config</code> API whenever you save settings. Use the <em>Fetch Config</em> button to view the config currently active in EMHASS. Runtime parameters (energy cost forecasts, load power forecasts, current battery SOC) are passed automatically by GridMate during each optimization call.</p>

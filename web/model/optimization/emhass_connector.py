@@ -408,6 +408,8 @@ class EmhassConnector(OptimizerConnector):
             entity_map['battery_soc'] = f'sensor.{prefix}soc_batt_forecast' if prefix else 'sensor.soc_batt_forecast'
 
         deferrable_loads = config.deferrable_loads if hasattr(config, 'deferrable_loads') else []
+        load_mapping = config.load_mapping if hasattr(config, 'load_mapping') else {}
+
         for i in range(len(deferrable_loads)):
             entity_name = f'sensor.{prefix}p_deferrable{i}' if prefix else f'sensor.p_deferrable{i}'
             entity_map[f'deferrable_{i}'] = entity_name
@@ -444,6 +446,9 @@ class EmhassConnector(OptimizerConnector):
             except (ValueError, TypeError):
                 pass
 
+        raw_schedules = {}
+        raw_power_forecasts = {}
+
         for i, load_config in enumerate(deferrable_loads):
             entity_key = f'deferrable_{i}'
             entity_id = entity_map.get(entity_key)
@@ -452,10 +457,35 @@ class EmhassConnector(OptimizerConnector):
 
             forecast_points = self._parse_forecast_entity(states.get(entity_id), to_kw=False)
             schedule = self._build_device_schedule(load_config, forecast_points, time_step)
-            result.device_schedules[load_config.device_id] = schedule
-
             forecast_points_kw = self._parse_forecast_entity(states.get(entity_id), to_kw=True)
-            result.device_power_forecasts[load_config.device_id] = forecast_points_kw
+
+            if load_mapping and i in load_mapping:
+                device_id = load_mapping[i][0]
+            else:
+                device_id = load_config.device_id
+
+            if device_id in raw_schedules:
+                raw_schedules[device_id].schedule_entries.extend(schedule.schedule_entries)
+                raw_schedules[device_id].total_energy_kwh += schedule.total_energy_kwh
+            else:
+                schedule.device_id = device_id
+                raw_schedules[device_id] = schedule
+
+            if device_id in raw_power_forecasts:
+                existing = raw_power_forecasts[device_id]
+                for j, point in enumerate(forecast_points_kw):
+                    if j < len(existing):
+                        existing[j] = TimeseriesPoint(
+                            timestamp=existing[j].timestamp,
+                            value=existing[j].value + point.value,
+                        )
+                    else:
+                        existing.append(point)
+            else:
+                raw_power_forecasts[device_id] = forecast_points_kw
+
+        result.device_schedules = raw_schedules
+        result.device_power_forecasts = raw_power_forecasts
 
         self._compute_summary(result)
         return result

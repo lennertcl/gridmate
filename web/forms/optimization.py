@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, IntegerField, SelectField, StringField, SubmitField
+from wtforms import BooleanField, HiddenField, IntegerField, SelectField, StringField, SubmitField
 from wtforms.validators import NumberRange, Optional
 
 
@@ -35,5 +35,7 @@ class OptimizationSettingsForm(FlaskForm):
         ],
     )
     load_power_sensor_entity = StringField('Load Power Sensor Entity')
+
+    weekly_schedule_data = HiddenField('Weekly Schedule Data', default='{}')
 
     submit = SubmitField('Save Settings')

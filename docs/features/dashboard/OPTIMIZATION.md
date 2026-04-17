@@ -96,6 +96,8 @@ The `opt_enabled` flag on the `home_battery` device type controls whether the ba
 | GET | /api/optimization/status | optimization_status | Current optimization status JSON |
 | GET | /api/optimization/schedule | optimization_schedule | Latest optimization result JSON |
 | POST | /api/optimization/run | run_optimization | Trigger manual optimization run |
+| POST | /api/optimization/device/<device_id>/override | set_device_override | Set next-optimization override for a device (num_cycles, hours_between_runs, earliest_start_time, latest_end_time) |
+| POST | /api/optimization/device/<device_id>/clear-override | clear_device_override | Remove next-optimization override for a device |
 
 ### Optimization Run Flow
 
@@ -170,7 +172,7 @@ Orchestrates the full optimization run:
 1. **Status Bar** — Full-width card showing EMHASS connection, actuation mode, last run time, and run status
 2. **Energy Plan Chart** — Stacked bar chart (Chart.js) showing the 24-hour plan after the last day-ahead optimization. Base load shown as grey bars, each managed device stacked on top in distinct colors showing their scheduled power during planned windows. Battery charge/discharge power is stacked in teal (`#0f766e`) — positive values (charging) stack with consumption, negative values (discharging) extend below zero. Solar production overlaid as a stepped yellow line. The chart uses a stepped (non-smooth) style reflecting the discrete time steps (typically 30 minutes). Rendered at a larger height (420px) for clarity
 3. **Summary Cards** — 5-column grid with estimated cost, production, grid import, grid export, and self-consumption metrics
-4. **Managed Devices** — Section showing all devices that participate in optimization. The home battery (if configured) appears first with a battery icon, showing capacity (kWh) and charge/discharge power limits (kW). Deferrable load devices follow, each showing nominal power, operating duration, and time window constraints. All devices have a per-device optimization enable toggle. Below each deferrable load device, the scheduled time blocks are shown as labeled chips with start/end times and operating power. When no devices are configured for optimization, a generic empty state message is shown
+4. **Managed Devices** — Section showing all devices that participate in optimization. The home battery (if configured) appears first with a battery icon, showing capacity (kWh) and charge/discharge power limits (kW). Deferrable load devices follow, each showing nominal power, operating duration, time window constraints, today's schedule summary (number of cycles and gap), next planned optimization time, and override status. All devices have a per-device optimization enable toggle. Below each deferrable load device, the scheduled time blocks are shown as labeled chips with start/end times and operating power. An "Override next optimization" button expands inline controls using the same cycle editor UI as the settings page (cycles, hours between runs, earliest start, latest end) for temporarily changing the device config for the next optimization run only. Setting cycles to 0 disables the device for the next run. Active overrides are shown as a yellow banner with clear button. Overrides are automatically cleared after the next optimization run. When no devices are configured for optimization, a generic empty state message is shown
 
 ### JavaScript (optimization-dashboard.js)
 
@@ -178,3 +180,6 @@ Orchestrates the full optimization run:
 - `renderEnergyPlanChart()` — Creates Chart.js stacked bar chart from load_forecast, device_power_forecasts, battery_power_forecast, and pv_forecast. The base load is taken directly from load_forecast (which represents non-deferrable household load). Device power forecasts are stacked on top, followed by battery charge/discharge power in teal. Solar production rendered as a line overlay. Uses DEVICE_COLORS array for consistent per-device coloring and DEVICE_NAMES for human-readable labels
 - `runOptimization()` — POSTs to /api/optimization/run, shows spinner, reloads on success
 - `toggleDeviceOptimization()` — AJAX toggle of per-device optimization flag
+- `toggleOverrideControls()` — Shows/hides inline override editor for a device
+- `setDeviceOverride()` — POSTs override (num_cycles, hours_between_runs, earliest_start_time, latest_end_time) to the API, reloads on success
+- `clearDeviceOverride()` — POSTs to clear-override API endpoint, reloads on success

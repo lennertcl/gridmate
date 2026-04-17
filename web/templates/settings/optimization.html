@@ -124,6 +124,82 @@
         <pre class="config-preview" id="emhass-config-preview" style="display: none;"></pre>
     </section>
 
+    {% if deferrable_loads %}
+    <section class="card">
+        <h3>Weekly Device Schedule</h3>
+        <p>Configure how many cycles each deferrable device should run per day and the minimum gap between cycles.</p>
+        <div class="weekly-schedule-wrapper">
+            <table class="weekly-schedule-table" id="weekly-schedule-table">
+                <thead>
+                    <tr>
+                        <th class="ws-device-col">Device</th>
+                        <th class="ws-toggle-col"></th>
+                        <th>Mon</th>
+                        <th>Tue</th>
+                        <th>Wed</th>
+                        <th>Thu</th>
+                        <th>Fri</th>
+                        <th>Sat</th>
+                        <th>Sun</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for load in deferrable_loads %}
+                    <tr class="ws-device-row {% if not load.enabled %}ws-device-disabled{% endif %}" data-device-id="{{ load.device_id }}">
+                        <td class="ws-device-name">
+                            {{ device_names.get(load.device_id, load.device_id) }}
+                        </td>
+                        <td class="ws-toggle-col">
+                            <label class="toggle-label toggle-sm ws-device-toggle">
+                                <input type="checkbox" class="toggle-input ws-opt-toggle" data-device="{{ load.device_id }}"
+                                       {% if load.enabled %}checked{% endif %}>
+                                <span class="toggle-switch"></span>
+                            </label>
+                        </td>
+                        {% for day in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] %}
+                        <td class="ws-cell" data-day="{{ day }}" data-device="{{ load.device_id }}">
+                            <span class="ws-badge ws-badge-empty">1</span>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="ws-editor" id="ws-editor" style="display: none;">
+            <div class="ws-editor-header">
+                <span class="ws-editor-title" id="ws-editor-title"></span>
+                <button type="button" class="btn btn-secondary btn-xs" id="ws-editor-close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="ws-editor-body">
+                <div class="cycle-editor">
+                    <div class="cycle-editor-field">
+                        <label>Cycles</label>
+                        <input type="number" class="form-control" id="ws-editor-num-cycles" min="0" max="5" step="1" value="1">
+                    </div>
+                    <div class="cycle-editor-field">
+                        <label>Hours between runs</label>
+                        <input type="number" class="form-control" id="ws-editor-gap" min="0" max="12" step="0.5" value="0">
+                    </div>
+                    <div class="cycle-editor-field">
+                        <label>Earliest start</label>
+                        <input type="time" class="form-control" id="ws-editor-start" value="">
+                    </div>
+                    <div class="cycle-editor-field">
+                        <label>Latest end</label>
+                        <input type="time" class="form-control" id="ws-editor-end" value="">
+                    </div>
+                    <div class="cycle-editor-actions">
+                        <button type="button" class="btn btn-primary btn-sm" id="ws-editor-apply">Apply</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="ws-editor-copy-all">Copy to all days</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <input type="hidden" name="weekly_schedule_data" id="weekly_schedule_data" value="{{ weekly_schedule_json }}">
+    </section>
+    {% endif %}
+
     <div class="form-actions">
         {{ form.submit(class="btn btn-primary") }}
     </div>
@@ -132,5 +208,8 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+const DEVICE_DEFAULTS = {{ device_defaults_json | safe }};
+</script>
 <script src="{{ url_for('static', filename='js/optimization-settings.js') }}"></script>
 {% endblock %}

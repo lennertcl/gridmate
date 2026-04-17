@@ -1,6 +1,6 @@
 ---
 name: home-assistant
-description: "Build on top of the Home Assistant ecosystem, api and integrations. Use this skill when the user asks to build anything related to Home Assistant (commonly abbreviated as HA). It points to documentation files to be read for better understanding of how to connect with Home Assistant."
+description: "Build on top of the Home Assistant ecosystem, api and integrations. Use this skill when the user asks to build anything related to Home Assistant (commonly abbreviated as HA). It points to documentation files to be read for better understanding of how to connect with Home Assistant. Also when asked about integrating with different integrations: Nordpool, Solcast, Forecast.Solar, etc."
 ---
 
 This skill guides interactions with Home Assistant. The entire application
@@ -99,4 +99,5 @@ These helpers complement the MCP setup: MCP is best for assistant-side querying 
 - Integrations: 
   * https://www.home-assistant.io/integrations/forecast_solar/
   * https://www.home-assistant.io/integrations/nordpool/
+  * https://raw.githubusercontent.com/BJReplay/ha-solcast-solar/refs/heads/main/README.md
   * For EMHASS see [emhass.md](emhass.md)
