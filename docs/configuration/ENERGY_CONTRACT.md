@@ -102,17 +102,17 @@ energy_sensor: "total_consumption"
 
 ### 3. VariableComponent
 
-**Purpose**: Real-time dynamic pricing based on sensor data (e.g., wholesale market prices, dynamic tariffs)
+**Purpose**: Dynamic pricing based on an Energy Price Provider (e.g., Nord Pool market prices, sensor-based tariffs, or static rates)
 
 **Formula**:
 ```
-cost = [variable_price_sensor(t) × variable_price_multiplier + variable_price_constant] × energy_kwh × multiplier
+cost = [provider_price(t) × variable_price_multiplier + variable_price_constant] × energy_kwh × multiplier
 (For injection rewards: cost = min(0, -[...] × energy_injected_kwh × multiplier))
 ```
 
 **Properties**:
-- **variable_price_sensor** (string): Entity ID of sensor providing real-time price (e.g., "sensor.electricity_price_per_kwh")
-- **variable_price_multiplier** (float): Multiplier applied to sensor value (usually 1.0 or close to it)
+- **price_provider_name** (string): Name of the configured Energy Price Provider to use for price data
+- **variable_price_multiplier** (float): Multiplier applied to provider price (usually 1.0 or close to it)
 - **variable_price_constant** (float): Additional fixed offset in €/kWh to add to each reading
 - **is_injection_reward** (boolean, default: False): If True, applies to injected energy. Injection rewards produce a negative cost that is deducted from the total bill, capped at 0 (never becomes a charge)
 - **energy_sensor** (string, optional, default: `total_consumption`): Same preset/custom behavior as in `FixedComponent`, but used as the interval energy source for dynamic pricing integration
@@ -122,7 +122,7 @@ cost = [variable_price_sensor(t) × variable_price_multiplier + variable_price_c
 ```yaml
 name: "50% Dynamic Market Price"
 multiplier: 0.5
-variable_price_sensor: "sensor.market_electricity_price"
+price_provider_name: "Nord Pool Belgium"
 variable_price_multiplier: 1.1  # 10% markup on market price
 variable_price_constant: 0.04  # Add €0.04/kWh base cost
 is_injection_reward: false
@@ -133,7 +133,7 @@ energy_sensor: "total_consumption"
 ```yaml
 name: "Wholesale + Markup"
 multiplier: 1.0
-variable_price_sensor: "sensor.wholesale_price"
+price_provider_name: "Electricity Spot Price"
 variable_price_multiplier: 1.15  # 15% markup
 variable_price_constant: 0.02
 is_injection_reward: false
@@ -223,6 +223,47 @@ Total: 5.0 (no requirement to equal 1.0) ✓
 
 ---
 
+## Energy Price Providers
+
+Energy Price Providers are a separate abstraction that supplies price data to `VariableComponent` instances. Providers are configured independently and referenced by name from components. This decouples price sourcing from cost calculation.
+
+### Provider Types
+
+#### StaticPriceProvider
+
+Returns a constant price for all timestamps.
+
+- **price_per_kwh** (float): Fixed price in €/kWh
+
+#### SensorPriceProvider
+
+Fetches prices from a Home Assistant sensor's statistics (past) and forecast attribute (future).
+
+- **price_sensor** (string): Entity ID of a HA sensor (e.g., `sensor.electricity_price`)
+
+#### NordpoolPriceProvider
+
+Fetches prices from the Nord Pool HA integration. Uses the derived sensors `sensor.nord_pool_{area}_current_price` and `sensor.nord_pool_{area}_next_price` for immediate fallback values, and the Home Assistant `nordpool.get_prices_for_date` action for the published day prices.
+
+- **area** (string): Nord Pool area code (e.g., `BE`, `NL`, `DE_LU`)
+
+Published prices are read per day through Home Assistant's Nord Pool action response and converted from `/MWh` to `/kWh`. Tomorrow's prices only become available once Nord Pool has published them through the integration.
+
+#### ActionPriceProvider
+
+Calls a Home Assistant action (service) to retrieve prices. Useful for custom integrations that expose price data via service calls.
+
+- **action_domain** (string): HA domain (e.g., `nordpool`)
+- **action_service** (string): Service name (e.g., `get_prices_for_date`)
+- **action_data** (dict): Additional service data
+- **response_price_key** (string): Key in the response containing the price list
+
+### API Endpoint
+
+The `/api/energy-prices` endpoint returns current price data from all defined Energy Price Providers. It fetches prices for today and tomorrow (48h window). Used by the live dashboard for price chart display.
+
+---
+
 ## Practical Examples
 
 ### Simple Fixed-Rate Contract
@@ -255,7 +296,7 @@ components:
   - type: VariableComponent
     name: "50% Dynamic (BELPEX)"
     multiplier: 0.5
-    variable_price_sensor: "sensor.belpex_price"
+    price_provider_name: "BELPEX Price"
     variable_price_multiplier: 1.1
     variable_price_constant: 0.04
     is_injection_reward: false
@@ -283,7 +324,7 @@ components:
   - type: VariableComponent
     name: "Solar Injection Reward"
     multiplier: 0.2
-    variable_price_sensor: "sensor.belpex_price"
+    price_provider_name: "BELPEX Price"
     variable_price_multiplier: 1.0
     variable_price_constant: 0.0
     is_injection_reward: true

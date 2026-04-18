@@ -143,6 +143,19 @@
         </div>
 
         <div class="explanation-section">
+            <h4><i class="fas fa-chart-line"></i> Optimization Dashboard Chart</h4>
+            <div class="explanation-content">
+                <p>The Energy Plan chart on the optimization dashboard combines both power and price context for the selected run.</p>
+                <dl>
+                    <dt>Power plan</dt>
+                    <dd>Base load, managed devices, battery charging/discharging, and solar production show how EMHASS plans energy flows across the horizon.</dd>
+                    <dt>Price lines</dt>
+                    <dd>The chart also overlays the import and export prices that were actually sent to EMHASS for that optimization run. This makes it easier to understand why loads were shifted to certain periods.</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="explanation-section">
             <h4><i class="fas fa-file-code"></i> EMHASS Configuration</h4>
             <div class="explanation-content">
                 <p>GridMate pushes a complete configuration to EMHASS via the <code>set-config</code> API whenever you save settings. Use the <em>Fetch Config</em> button to view the config currently active in EMHASS. Runtime parameters (energy cost forecasts, load power forecasts, current battery SOC) are passed automatically by GridMate during each optimization call.</p>

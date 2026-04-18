@@ -9,6 +9,13 @@ let price_chart = null;
 let ha_connection = null;
 let today_history = null;
 
+const PRICE_COLORS = [
+    { border: '#00d97e', bg: 'rgba(15, 118, 110, 0.1)' },
+    { border: '#1e90ff', bg: 'rgba(0, 153, 255, 0.1)' },
+    { border: '#ff8c42', bg: 'rgba(255, 165, 2, 0.1)' },
+    { border: '#ebe730', bg: 'rgba(255, 165, 2, 0.1)' },
+];
+
 function format_power(value, unit = 'kW') {
     if (value === null || value === undefined || isNaN(value)) return `-- ${unit}`;
     return `${Number(value).toFixed(3)} ${unit}`;
@@ -229,7 +236,7 @@ async function reload_history() {
         }
 
         await fetch_and_render_statistics(ha_connection);
-        await fetch_and_render_price_history(ha_connection);
+        await fetch_and_render_price_history();
         await fetch_and_render_solar_history(ha_connection);
     }
 }
@@ -409,72 +416,58 @@ function update_text(element_id, text) {
     if (el) el.innerText = text;
 }
 
-async function fetch_and_render_price_history(connection) {
-    const price_sensors = window.HA_CONFIG.price_sensors || [];
-    if (!price_chart || price_sensors.length === 0) return;
+function build_price_dataset(name, index) {
+    const color = PRICE_COLORS[index % PRICE_COLORS.length];
 
-    const start_time = get_start_time();
-    const end_time = get_end_time();
-    const entity_ids = price_sensors.map(s => s.entity_id).filter(id => id);
+    return {
+        label: name,
+        data: [],
+        borderColor: color.border,
+        backgroundColor: color.bg,
+        tension: 0,
+        fill: false,
+        stepped: 'after',
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        borderWidth: 2,
+    };
+}
 
-    if (entity_ids.length === 0) return;
+function sync_price_chart_datasets(provider_names) {
+    if (!price_chart) return;
+
+    price_chart.data.datasets = provider_names.map((name, index) => build_price_dataset(name, index));
+}
+
+async function fetch_and_render_price_history() {
+    if (!price_chart || !window.HA_CONFIG.has_variable_pricing) return;
 
     try {
-        const history_data = await connection.sendMessagePromise({
-            type: 'history/history_during_period',
-            start_time: start_time.toISOString(),
-            end_time: end_time.toISOString(),
-            entity_ids: entity_ids,
-            minimal_response: true,
-            no_attributes: true
-        });
+        const response = await fetch('/api/energy-prices');
+        if (!response.ok) return;
+        const data = await response.json();
+        const providers = data.providers || {};
+        const provider_entries = Object.entries(providers);
 
-        if (!history_data) return;
+        sync_price_chart_datasets(provider_entries.map(([name]) => name));
 
-        price_sensors.forEach((sensor, index) => {
-            const entity_history = history_data[sensor.entity_id];
-            if (!entity_history) return;
+        for (const [dataset_index, [name, prices]] of provider_entries.entries()) {
+            const dataset = price_chart.data.datasets[dataset_index];
+            if (!dataset) continue;
 
-            const data_points = entity_history
-                .filter(item => item.s && !isNaN(parseFloat(item.s)))
-                .map(item => ({
-                    x: new Date((item.lc || item.lu) * 1000).getTime(),
-                    y: parseFloat(item.s)
-                }))
+            const data_points = Object.entries(prices)
+                .filter(([, v]) => v !== null)
+                .map(([ts, v]) => ({ x: parseInt(ts), y: v }))
                 .sort((a, b) => a.x - b.x);
 
-            price_chart.data.datasets[index].data = data_points;
-        });
+            dataset.data = data_points;
+            dataset.label = name;
+        }
 
         price_chart.update('none');
     } catch (error) {
-        console.error('Error fetching price history:', error);
+        console.error('Error fetching energy prices:', error);
     }
-}
-
-function update_price_chart_realtime(entities) {
-    const price_sensors = window.HA_CONFIG.price_sensors || [];
-    if (!price_chart || price_sensors.length === 0) return;
-
-    const now = new Date();
-
-    price_sensors.forEach((sensor, index) => {
-        if (!sensor.entity_id || !entities[sensor.entity_id]) return;
-        const state = parseFloat(entities[sensor.entity_id].state);
-        if (isNaN(state)) return;
-
-        const dataset = price_chart.data.datasets[index];
-        const last = dataset.data.length > 0 ? dataset.data[dataset.data.length - 1] : null;
-
-        if (last && (now.getTime() - last.x) < 60000) {
-            last.x = now.getTime();
-            last.y = state;
-        } else {
-            dataset.data.push({ x: now.getTime(), y: state });
-        }
-    });
-
-    price_chart.update('none');
 }
 
 async function fetch_and_render_solar_history(connection) {
@@ -609,9 +602,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     energy_chart = create_energy_chart();
     consumption_chart = create_consumption_chart();
 
-    const price_sensors = window.HA_CONFIG.price_sensors || [];
-    if (price_sensors.length > 0) {
-        price_chart = create_price_chart(price_sensors, start_time, end_time);
+    const has_variable_pricing = window.HA_CONFIG.has_variable_pricing || false;
+    if (has_variable_pricing) {
+        price_chart = create_price_chart([], start_time, end_time);
     }
 
     if (window.HA_CONFIG.solar_configured && typeof create_solar_production_chart === 'function') {
@@ -626,13 +619,12 @@ document.addEventListener('DOMContentLoaded', async function () {
     ha_connection = await get_ha_connection();
 
     await fetch_and_render_statistics(ha_connection);
-    await fetch_and_render_price_history(ha_connection);
+    await fetch_and_render_price_history();
     await fetch_and_render_solar_history(ha_connection);
 
     subscribeEntities(ha_connection, (entities) => {
         update_dashboard(entities);
         if (is_realtime_window()) {
-            update_price_chart_realtime(entities);
             update_solar_chart_live(entities);
         }
     });

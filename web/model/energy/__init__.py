@@ -11,6 +11,13 @@ from web.model.energy.models import (
     PercentageComponent,
     VariableComponent,
 )
+from web.model.energy.price_provider import (
+    ActionPriceProvider,
+    EnergyPriceProvider,
+    NordpoolPriceProvider,
+    SensorPriceProvider,
+    StaticPriceProvider,
+)
 
 __all__ = [
     'EnergyContract',
@@ -22,4 +29,9 @@ __all__ = [
     'PercentageComponent',
     'EnergyContractComponent',
     'EnergyPeriodData',
+    'EnergyPriceProvider',
+    'StaticPriceProvider',
+    'SensorPriceProvider',
+    'NordpoolPriceProvider',
+    'ActionPriceProvider',
 ]

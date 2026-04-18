@@ -1,3 +1,5 @@
+import json
+
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from web.forms import (
@@ -8,7 +10,13 @@ from web.forms import (
     PercentageComponentForm,
     VariableComponentForm,
 )
-from web.model.data.data_connector import DataConnector, EnergyContractManager, EnergyFeedManager
+from web.forms.price_provider import (
+    ActionPriceProviderForm,
+    NordpoolPriceProviderForm,
+    SensorPriceProviderForm,
+    StaticPriceProviderForm,
+)
+from web.model.data.data_connector import DataConnector, EnergyContractManager, EnergyFeedManager, PriceProviderManager
 from web.model.energy.models import (
     ENERGY_SENSOR_DEFAULT,
     ENERGY_SENSOR_OPTION_LABELS,
@@ -20,11 +28,18 @@ from web.model.energy.models import (
     PercentageComponent,
     VariableComponent,
 )
+from web.model.energy.price_provider import (
+    ActionPriceProvider,
+    NordpoolPriceProvider,
+    SensorPriceProvider,
+    StaticPriceProvider,
+)
 
 # Initialize data connector and managers
 data_connector = DataConnector()
 energy_feed_manager = EnergyFeedManager(data_connector)
 energy_contract_manager = EnergyContractManager(data_connector)
+price_provider_manager = PriceProviderManager(data_connector)
 
 settings_energy_bp = Blueprint('settings_energy', __name__)
 
@@ -122,7 +137,7 @@ def energy_contract():
                     component = VariableComponent(
                         name=form.name.data,
                         multiplier=form.multiplier.data,
-                        variable_price_sensor=form.variable_price_sensor.data,
+                        price_provider_name=form.price_provider_name.data,
                         variable_price_multiplier=form.variable_price_multiplier.data,
                         variable_price_constant=form.variable_price_constant.data,
                         is_injection_reward=form.is_injection_reward.data,
@@ -175,7 +190,7 @@ def energy_contract():
                     component.is_injection_reward = form.is_injection_reward.data
                     component.energy_sensor = form.energy_sensor.data or ENERGY_SENSOR_DEFAULT
                 elif isinstance(component, VariableComponent):
-                    component.variable_price_sensor = form.variable_price_sensor.data
+                    component.price_provider_name = form.price_provider_name.data
                     component.variable_price_multiplier = form.variable_price_multiplier.data
                     component.variable_price_constant = form.variable_price_constant.data
                     component.is_injection_reward = form.is_injection_reward.data
@@ -214,6 +229,14 @@ def energy_contract():
     capacity_form = CapacityComponentForm(meta={'csrf': True})
     percentage_form = PercentageComponentForm(meta={'csrf': True})
 
+    static_provider_form = StaticPriceProviderForm(meta={'csrf': True})
+    sensor_provider_form = SensorPriceProviderForm(meta={'csrf': True})
+    nordpool_provider_form = NordpoolPriceProviderForm(meta={'csrf': True})
+    action_provider_form = ActionPriceProviderForm(meta={'csrf': True})
+
+    providers = price_provider_manager.get_all()
+    provider_names = [p.name for p in providers]
+
     contract_components_json = (
         [comp.to_dict() for comp in contract.components] if contract and contract.components else []
     )
@@ -230,4 +253,145 @@ def energy_contract():
         variable_form=variable_form,
         capacity_form=capacity_form,
         percentage_form=percentage_form,
+        providers=providers,
+        provider_names=provider_names,
+        static_provider_form=static_provider_form,
+        sensor_provider_form=sensor_provider_form,
+        nordpool_provider_form=nordpool_provider_form,
+        action_provider_form=action_provider_form,
     )
+
+
+PROVIDER_FORM_CLASSES = {
+    'static': StaticPriceProviderForm,
+    'sensor': SensorPriceProviderForm,
+    'nordpool': NordpoolPriceProviderForm,
+    'action': ActionPriceProviderForm,
+}
+
+
+@settings_energy_bp.route('/settings/energy-contract/provider', methods=['POST'])
+def manage_provider():
+    action = request.form.get('action')
+
+    if action == 'add_provider':
+        provider_type = request.form.get('provider_type')
+        form_class = PROVIDER_FORM_CLASSES.get(provider_type)
+        if not form_class:
+            flash('Invalid provider type.', 'danger')
+            return redirect(url_for('settings_energy.energy_contract'))
+
+        form = form_class()
+        if form.validate_on_submit():
+            existing_names = price_provider_manager.get_provider_names()
+            if form.name.data in existing_names:
+                flash(f'A provider with name "{form.name.data}" already exists.', 'danger')
+                return redirect(url_for('settings_energy.energy_contract'))
+
+            if provider_type == 'static':
+                provider = StaticPriceProvider(
+                    name=form.name.data,
+                    price_per_kwh=form.price_per_kwh.data,
+                )
+            elif provider_type == 'sensor':
+                provider = SensorPriceProvider(
+                    name=form.name.data,
+                    price_sensor=form.price_sensor.data,
+                )
+            elif provider_type == 'nordpool':
+                provider = NordpoolPriceProvider(
+                    name=form.name.data,
+                    area=form.area.data,
+                )
+            elif provider_type == 'action':
+                action_data = {}
+                if form.action_data.data:
+                    try:
+                        action_data = json.loads(form.action_data.data)
+                    except json.JSONDecodeError:
+                        flash('Action Data must be valid JSON.', 'danger')
+                        return redirect(url_for('settings_energy.energy_contract'))
+                provider = ActionPriceProvider(
+                    name=form.name.data,
+                    action_domain=form.action_domain.data,
+                    action_service=form.action_service.data,
+                    action_data=action_data,
+                    response_price_key=form.response_price_key.data,
+                )
+
+            price_provider_manager.add(provider)
+            flash(f'Price provider "{provider.name}" added successfully!', 'success')
+        else:
+            first_error = next(iter(form.errors.values()))[0]
+            flash(f'Validation error: {first_error}', 'danger')
+
+    elif action == 'update_provider':
+        provider_type = request.form.get('provider_type')
+        index = request.form.get('index', type=int)
+        form_class = PROVIDER_FORM_CLASSES.get(provider_type)
+
+        if not form_class or index is None:
+            flash('Invalid provider.', 'danger')
+            return redirect(url_for('settings_energy.energy_contract'))
+
+        form = form_class()
+        if form.validate_on_submit():
+            if provider_type == 'static':
+                provider = StaticPriceProvider(
+                    name=form.name.data,
+                    price_per_kwh=form.price_per_kwh.data,
+                )
+            elif provider_type == 'sensor':
+                provider = SensorPriceProvider(
+                    name=form.name.data,
+                    price_sensor=form.price_sensor.data,
+                )
+            elif provider_type == 'nordpool':
+                provider = NordpoolPriceProvider(
+                    name=form.name.data,
+                    area=form.area.data,
+                )
+            elif provider_type == 'action':
+                action_data = {}
+                if form.action_data.data:
+                    try:
+                        action_data = json.loads(form.action_data.data)
+                    except json.JSONDecodeError:
+                        flash('Action Data must be valid JSON.', 'danger')
+                        return redirect(url_for('settings_energy.energy_contract'))
+                provider = ActionPriceProvider(
+                    name=form.name.data,
+                    action_domain=form.action_domain.data,
+                    action_service=form.action_service.data,
+                    action_data=action_data,
+                    response_price_key=form.response_price_key.data,
+                )
+
+            price_provider_manager.update(index, provider)
+            flash(f'Price provider "{provider.name}" updated successfully!', 'success')
+        else:
+            first_error = next(iter(form.errors.values()))[0]
+            flash(f'Validation error: {first_error}', 'danger')
+
+    elif action == 'remove_provider':
+        index = request.form.get('index', type=int)
+        if index is not None:
+            contract = energy_contract_manager.get_config()
+            providers = price_provider_manager.get_all()
+            if 0 <= index < len(providers):
+                provider_name = providers[index].name
+                referencing = [
+                    c.name
+                    for c in contract.components
+                    if isinstance(c, VariableComponent) and c.price_provider_name == provider_name
+                ]
+                if referencing:
+                    names = ', '.join(referencing)
+                    flash(f'Cannot remove provider "{provider_name}": referenced by components: {names}', 'danger')
+                else:
+                    price_provider_manager.delete(index)
+                    flash(f'Price provider "{provider_name}" removed successfully!', 'success')
+            else:
+                flash('Invalid provider index.', 'danger')
+
+    return redirect(url_for('settings_energy.energy_contract'))

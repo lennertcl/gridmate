@@ -197,23 +197,36 @@ function update_chart_realtime(chart, timestamp, data_points, start_time) {
 
 function create_price_chart(price_sensors, start_time, end_time) {
     const ctx = document.getElementById('priceChart');
-    if (!ctx || !price_sensors || price_sensors.length === 0) return null;
+    if (!ctx) return null;
 
-    const datasets = price_sensors.map((sensor, index) => {
-        const color = PRICE_COLORS[index % PRICE_COLORS.length];
-        return {
-            label: sensor.name,
+    const datasets = price_sensors.length > 0
+        ? price_sensors.map((sensor, index) => {
+            const color = PRICE_COLORS[index % PRICE_COLORS.length];
+            return {
+                label: sensor.name,
+                data: [],
+                borderColor: color.border,
+                backgroundColor: color.bg,
+                tension: 0,
+                fill: false,
+                stepped: 'after',
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                borderWidth: 2,
+            };
+        })
+        : [{
+            label: 'Energy Price',
             data: [],
-            borderColor: color.border,
-            backgroundColor: color.bg,
+            borderColor: PRICE_COLORS[0].border,
+            backgroundColor: PRICE_COLORS[0].bg,
             tension: 0,
             fill: false,
             stepped: 'after',
             pointRadius: 0,
             pointHoverRadius: 4,
             borderWidth: 2,
-        };
-    });
+        }];
 
     return new Chart(ctx.getContext('2d'), {
         type: 'line',

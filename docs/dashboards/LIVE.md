@@ -40,9 +40,23 @@ Renders the live dashboard. Passes sensor entity IDs from the configured `Energy
 When `usage_mode` is `'auto'`, the frontend computes usage as `max(0, consumption + production − injection)` instead of reading from a dedicated usage sensor. When `'manual'`, the usage sensor entity value is used directly.
 
 The route additionally passes:
-- `price_sensors` — a list of `{entity_id, name}` dicts for each `VariableComponent` in the user's energy contract that has a `variable_price_sensor` configured.
+- `has_variable_pricing` — boolean indicating whether any `VariableComponent` with a `price_provider_name` exists in the energy contract or any Energy Price Providers are defined. Used to conditionally render the price chart section.
 - `solar_sensors` — a dict of all solar sensor entity IDs (production + estimation + consumption/injection) when solar is configured.
 - `solar_configured` — boolean indicating whether solar panels are configured.
+
+### GET `/api/energy-prices`
+
+Returns price data from all defined Energy Price Providers. Fetches prices for a 48-hour window (today and tomorrow). Response format:
+```json
+{
+  "providers": {
+    "Provider Name": {"1234567890000": 0.05, ...}
+  }
+}
+```
+Keys are millisecond timestamps; values are prices in €/kWh.
+
+For `NordpoolPriceProvider`, GridMate resolves future values through Home Assistant's `nordpool.get_prices_for_date` action instead of relying on sensor attributes. This returns the published quarter-hour or hour prices for the requested day. Tomorrow's values are only present after Nord Pool has published them through the integration.
 
 ### GET `/api/ha/config`
 
@@ -103,7 +117,7 @@ Both charts use data from `recorder/statistics_during_period` with 5-minute aggr
 
 A second side-by-side chart row displays below the main charts. These charts use the full selected range (including future time) to display predictions:
 
-**Energy Prices chart** — A stepped line chart showing price data for each variable component sensor in the user's energy contract. Each component gets its own dataset with a distinct color from `PRICE_COLORS`. Price history is fetched from HA for the selected range on page load and updated in real time via entity subscription. Only rendered if at least one variable component has a `variable_price_sensor` configured.
+**Energy Prices chart** — A stepped line chart showing price data from all defined Energy Price Providers. Price data is fetched once from the `/api/energy-prices` backend endpoint on page load. The frontend creates one dataset per provider from the API response, so all configured providers are rendered even when none were known when the chart instance was created. Nord Pool providers use Home Assistant's day-price action for the published remaining slots of today and, when available, tomorrow. Each provider gets its own dataset with a distinct color from `PRICE_COLORS`. Only rendered if at least one Energy Price Provider is defined or a variable component has a `price_provider_name` configured.
 
 **Solar Production vs Forecast chart** — Identical to the chart on the Solar Dashboard. Shows actual production (yellow bars) and forecast (dashed blue line). Actual production history is fetched from HA, while the forecast combines the current-day estimation entity with the +24h offset entity for future hours. Updated in real time via entity subscription. Only rendered if solar panels are configured.
 
@@ -115,7 +129,7 @@ All JS is split into separate files following the project rules:
 
 - **live-charts.js** — Loaded as a regular script. Provides `create_energy_chart()`, `create_consumption_chart()`, `create_price_chart(price_sensors, start_time, end_time)`, `clear_chart()`, `process_history_for_chart()`, `process_activity_history_for_chart()`, and `update_chart_realtime()`. Reusable chart configuration and dataset builders.
 - **solar-charts.js** — Conditionally loaded when solar is configured. Provides `create_solar_production_chart()`, `update_solar_production_chart_realtime()`, `update_solar_chart_range()`, and `clear_solar_charts()`. Reused from the solar dashboard.
-- **live-dashboard.js** — Loaded as an ES module. Handles the HA WebSocket connection lifecycle, range control initialization, statistics fetching, realtime detection (`is_realtime_window()`), LIVE indicator toggling, energy flow updates, and real-time entity subscription updates. Only pushes data to charts and statistics when in realtime mode (current time within selected range); always updates the sensor value cards. Depends on functions from `live-charts.js` and optionally `solar-charts.js`. Uses a single `recorder/statistics_during_period` call with 5-minute aggregation for both chart data and energy summary. When `usage_mode` is `'auto'`, it first aligns the timestamp buckets returned for consumption, production, and injection, then computes usage as `max(0, consumption + production − injection)` on that aligned timeline. All charts and the energy flow use the same selected time range.
+- **live-dashboard.js** — Loaded as an ES module. Handles the HA WebSocket connection lifecycle, range control initialization, statistics fetching, realtime detection (`is_realtime_window()`), LIVE indicator toggling, energy flow updates, and real-time entity subscription updates. Only pushes data to charts and statistics when in realtime mode (current time within selected range); always updates the sensor value cards. Depends on functions from `live-charts.js` and optionally `solar-charts.js`. Uses a single `recorder/statistics_during_period` call with 5-minute aggregation for both chart data and energy summary. When `usage_mode` is `'auto'`, it first aligns the timestamp buckets returned for consumption, production, and injection, then computes usage as `max(0, consumption + production − injection)` on that aligned timeline. It also resizes the price chart datasets to exactly match the providers returned by `/api/energy-prices`. All charts and the energy flow use the same selected time range.
 
 The only inline script in the template injects backend sensor entity IDs into `window.HA_CONFIG`.
 

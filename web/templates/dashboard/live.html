@@ -89,10 +89,10 @@
         </div>
     </section>
 
-    {% if price_sensors or solar_configured %}
+    {% if has_variable_pricing or solar_configured %}
     <section class="card card-full-width">
         <div class="live-charts-row">
-            {% if price_sensors %}
+            {% if has_variable_pricing %}
             <div class="live-chart-col">
                 <h3>Energy Price</h3>
                 <div class="chart-container" style="height: 300px;">
@@ -166,7 +166,7 @@
             production: "{{ actual_production_sensor }}"
         },
         usage_mode: "{{ usage_mode }}",
-        price_sensors: {{ price_sensors | tojson }},
+        has_variable_pricing: {{ has_variable_pricing | tojson }},
         solar_configured: {{ solar_configured | tojson }},
         solar_sensors: {{ solar_sensors | tojson }}
     };

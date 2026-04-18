@@ -7,7 +7,7 @@ Supports monthly and yearly cost calculations with detailed breakdowns.
 
 from collections import defaultdict
 from datetime import date, datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from .models import EnergyContract, EnergyCostBreakdown, EnergyPeriodData
 
@@ -15,13 +15,9 @@ from .models import EnergyContract, EnergyCostBreakdown, EnergyPeriodData
 class CostCalculationService:
     """Service to calculate energy costs from meter readings and contracts"""
 
-    def __init__(self, energy_contract: Optional[EnergyContract] = None):
-        """Initialize with an optional energy contract
-
-        Args:
-            energy_contract: EnergyContract instance for cost calculation
-        """
+    def __init__(self, energy_contract: Optional[EnergyContract] = None, ha_connector: Any = None):
         self.contract = energy_contract or EnergyContract()
+        self.ha_connector = ha_connector
 
     def get_month_date_range(self, year: int, month: int) -> Tuple[date, date]:
         """Get start and end dates for a given month
@@ -55,32 +51,16 @@ class CostCalculationService:
         return date(year, 1, 1), date(year, 12, 31)
 
     def calculate_monthly_costs(self, period_data: EnergyPeriodData) -> Tuple[float, List[EnergyCostBreakdown]]:
-        """Calculate monthly costs with breakdown
-
-        Args:
-            period_data: Energy measurements for the month
-
-        Returns:
-            Tuple of (total_cost_euros, list_of_breakdowns)
-        """
         if not self.contract or not self.contract.components:
             return 0.0, []
 
-        return self.contract.calculate_monthly_cost(period_data)
+        return self.contract.calculate_monthly_cost(period_data, ha_connector=self.ha_connector)
 
     def calculate_yearly_costs(self, period_data: EnergyPeriodData) -> Tuple[float, List[EnergyCostBreakdown]]:
-        """Calculate yearly costs with breakdown
-
-        Args:
-            period_data: Energy measurements for the year
-
-        Returns:
-            Tuple of (total_cost_euros, list_of_breakdowns)
-        """
         if not self.contract or not self.contract.components:
             return 0.0, []
 
-        return self.contract.calculate_yearly_cost(period_data)
+        return self.contract.calculate_yearly_cost(period_data, ha_connector=self.ha_connector)
 
     def get_cost_summary(self, period_data: EnergyPeriodData, is_monthly: bool = True) -> Dict:
         """Get comprehensive cost summary including breakdown and totals

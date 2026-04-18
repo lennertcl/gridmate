@@ -65,11 +65,46 @@ class DataConnector:
         if 'device_types' in data:
             del data['device_types']
             self._save_to_storage(data)
+        self._migrate_variable_price_sensors(data)
         return data
 
     def _save_to_storage(self, data: Dict) -> None:
         """Save data to repository"""
         self.repository.save(data)
+
+    def _migrate_variable_price_sensors(self, data: Dict) -> None:
+        contract_data = data.get('energy_contract', {})
+        components = contract_data.get('components', [])
+        providers = data.get('energy_price_providers', [])
+        existing_names = {p.get('name') for p in providers}
+
+        migrated = False
+        for comp in components:
+            if comp.get('type') != 'VariableComponent':
+                continue
+            sensor = comp.get('variable_price_sensor')
+            if not sensor:
+                continue
+
+            provider_name = f'Migrated: {sensor}'
+            if provider_name not in existing_names:
+                providers.append(
+                    {
+                        'type': 'SensorPriceProvider',
+                        'provider_type': 'sensor',
+                        'name': provider_name,
+                        'price_sensor': sensor,
+                    }
+                )
+                existing_names.add(provider_name)
+
+            comp['price_provider_name'] = provider_name
+            del comp['variable_price_sensor']
+            migrated = True
+
+        if migrated:
+            data['energy_price_providers'] = providers
+            self._save_to_storage(data)
 
     def export(self) -> Dict:
         """Export all data as dictionary"""
@@ -428,6 +463,57 @@ class EnergyContractManager:
         return self.connector.get_energy_contract()
 
 
+class PriceProviderManager:
+    def __init__(self, connector: DataConnector):
+        self.connector = connector
+
+    def get_all(self) -> List:
+        from web.model.energy.price_provider import EnergyPriceProvider
+
+        data = self.connector._load_from_storage()
+        providers = []
+        for provider_data in data.get('energy_price_providers', []):
+            try:
+                providers.append(EnergyPriceProvider.from_dict(provider_data))
+            except (ValueError, KeyError) as e:
+                logger.warning(f'Failed to load price provider: {e}')
+        return providers
+
+    def get_by_name(self, name: str) -> Optional[any]:
+        for provider in self.get_all():
+            if provider.name == name:
+                return provider
+        return None
+
+    def add(self, provider: any) -> None:
+        data = self.connector._load_from_storage()
+        providers = data.get('energy_price_providers', [])
+        providers.append(provider.to_dict())
+        data['energy_price_providers'] = providers
+        self.connector._save_to_storage(data)
+
+    def update(self, index: int, provider: any) -> None:
+        data = self.connector._load_from_storage()
+        providers = data.get('energy_price_providers', [])
+        if 0 <= index < len(providers):
+            providers[index] = provider.to_dict()
+            data['energy_price_providers'] = providers
+            self.connector._save_to_storage(data)
+
+    def delete(self, index: int) -> Optional[str]:
+        data = self.connector._load_from_storage()
+        providers = data.get('energy_price_providers', [])
+        if 0 <= index < len(providers):
+            removed = providers.pop(index)
+            data['energy_price_providers'] = providers
+            self.connector._save_to_storage(data)
+            return removed.get('name', '')
+        return None
+
+    def get_provider_names(self) -> List[str]:
+        return [p.name for p in self.get_all()]
+
+
 class SolarManager:
     def __init__(self, connector: DataConnector):
         self.connector = connector
@@ -661,8 +747,6 @@ class EnergyDataService:
         if contract and contract.components:
             for component in contract.components:
                 if isinstance(component, VariableComponent):
-                    if component.variable_price_sensor:
-                        sensors.add(component.variable_price_sensor)
                     energy_sensor = component.energy_sensor or ENERGY_SENSOR_TOTAL_CONSUMPTION
                     if energy_sensor and energy_sensor not in PRESELECTABLE_ENERGY_SENSORS:
                         sensors.add(energy_sensor)

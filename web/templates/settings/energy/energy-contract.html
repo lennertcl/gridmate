@@ -24,6 +24,7 @@
     window.defaultEnergySensor = '{{ default_energy_sensor }}';
     window.availableSensors = {{ available_sensors | tojson }};
     window.contractComponents = {{ contract_components_json | tojson }};
+    window.providerNames = {{ provider_names | tojson }};
 </script>
 
 {% macro period_suffix(period) -%}
@@ -36,6 +37,62 @@
     <span class="detail-value">{{ value }}</span>
 </div>
 {%- endmacro %}
+
+<div class="card card-full-width">
+
+        <!-- Energy Price Providers Section -->
+        <div class="components-section">
+            <h3>Energy Price Providers</h3>
+
+            <div class="add-component-section">
+                <h3>Add New Provider</h3>
+                <div class="component-type-buttons">
+                    <button type="button" class="btn btn-primary" onclick="open_add_provider_dialog('static')">+ Static</button>
+                    <button type="button" class="btn btn-primary" onclick="open_add_provider_dialog('sensor')">+ Sensor</button>
+                    <button type="button" class="btn btn-primary" onclick="open_add_provider_dialog('nordpool')">+ Nord Pool</button>
+                    <button type="button" class="btn btn-primary" onclick="open_add_provider_dialog('action')">+ Action</button>
+                </div>
+            </div>
+
+            {% if providers %}
+            <div class="components-list">
+                {% for provider in providers %}
+                <div class="component-card" data-provider-index="{{ loop.index0 }}">
+                    <div class="component-header">
+                        <h4>{{ provider.name }}</h4>
+                        <div class="component-meta">
+                            <span class="badge badge-constantcomponent">{{ provider.provider_type }}</span>
+                        </div>
+                        <div class="component-actions">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick='open_edit_provider_dialog({{ loop.index0 }}, "{{ provider.provider_type }}", {{ provider.to_dict() | tojson }})'>Edit</button>
+                            <form method="POST" action="{{ url_for('settings_energy.manage_provider') }}" style="display:inline;">
+                                {{ static_provider_form.hidden_tag() }}
+                                <input type="hidden" name="action" value="remove_provider">
+                                <input type="hidden" name="index" value="{{ loop.index0 }}">
+                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to remove this provider?')">Remove</button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="component-body">
+                        {% if provider.provider_type == 'static' %}
+                        {{ render_detail('Price', provider.price_per_kwh ~ ' €/kWh') }}
+                        {% elif provider.provider_type == 'sensor' %}
+                        {{ render_detail('Price Sensor', provider.price_sensor) }}
+                        {% elif provider.provider_type == 'nordpool' %}
+                        {{ render_detail('Area', provider.area) }}
+                        {% elif provider.provider_type == 'action' %}
+                        {{ render_detail('Action', provider.action_domain ~ '.' ~ provider.action_service) }}
+                        {{ render_detail('Response Key', provider.response_price_key) }}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="no-components">No price providers configured yet</p>
+            {% endif %}
+        </div>
+</div>
 
 <div class="card card-full-width">
         
@@ -93,7 +150,7 @@
                         {{ render_detail('Energy Sensor', component.energy_sensor) }}
 
                         {% elif component_class == 'VariableComponent' %}
-                        {{ render_detail('Price Sensor', component.variable_price_sensor) }}
+                        {{ render_detail('Price Provider', component.price_provider_name) }}
                         {{ render_detail('Price Formula', component.variable_price_multiplier ~ ' × price + ' ~ component.variable_price_constant ~ ' €/kWh') }}
                         {{ render_detail('Energy Sensor', component.energy_sensor) }}
 
@@ -119,6 +176,102 @@
             {% endif %}
         </div>
         
+        <!-- Add Provider Dialog -->
+        <div id="addProviderModal" class="modal" style="display:none">
+            <div class="modal-content">
+                <span class="close" onclick="close_add_provider_dialog()">&times;</span>
+                <h3 id="providerModalTitle">Add New Provider</h3>
+
+                <!-- Static Provider Form -->
+                <div id="staticProviderForm" class="component-form" style="display:none">
+                    <form method="POST" action="{{ url_for('settings_energy.manage_provider') }}">
+                        {{ static_provider_form.hidden_tag() }}
+                        <input type="hidden" name="action" id="staticProviderAction" value="add_provider">
+                        <input type="hidden" name="provider_type" value="static">
+                        <input type="hidden" name="index" id="staticProviderIndex" value="">
+                        <div class="form-row-modal">
+                            <label for="static_provider_name">Provider Name</label>
+                            {{ static_provider_form.name(class="form-control", id="static_provider_name", placeholder="e.g., Fixed Rate") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="static_provider_price_per_kwh">Price (€/kWh)</label>
+                            {{ static_provider_form.price_per_kwh(class="form-control", id="static_provider_price_per_kwh", step="0.0001", min="0") }}
+                        </div>
+                        <button type="submit" id="staticProviderSubmitButton" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Add Provider</button>
+                    </form>
+                </div>
+
+                <!-- Sensor Provider Form -->
+                <div id="sensorProviderForm" class="component-form" style="display:none">
+                    <form method="POST" action="{{ url_for('settings_energy.manage_provider') }}">
+                        {{ sensor_provider_form.hidden_tag() }}
+                        <input type="hidden" name="action" id="sensorProviderAction" value="add_provider">
+                        <input type="hidden" name="provider_type" value="sensor">
+                        <input type="hidden" name="index" id="sensorProviderIndex" value="">
+                        <div class="form-row-modal">
+                            <label for="sensor_provider_name">Provider Name</label>
+                            {{ sensor_provider_form.name(class="form-control", id="sensor_provider_name", placeholder="e.g., Electricity Price Sensor") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="sensor_provider_price_sensor">Price Sensor</label>
+                            {{ sensor_provider_form.price_sensor(class="form-control", id="sensor_provider_price_sensor", placeholder="e.g., sensor.electricity_price") }}
+                        </div>
+                        <button type="submit" id="sensorProviderSubmitButton" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Add Provider</button>
+                    </form>
+                </div>
+
+                <!-- Nordpool Provider Form -->
+                <div id="nordpoolProviderForm" class="component-form" style="display:none">
+                    <form method="POST" action="{{ url_for('settings_energy.manage_provider') }}">
+                        {{ nordpool_provider_form.hidden_tag() }}
+                        <input type="hidden" name="action" id="nordpoolProviderAction" value="add_provider">
+                        <input type="hidden" name="provider_type" value="nordpool">
+                        <input type="hidden" name="index" id="nordpoolProviderIndex" value="">
+                        <div class="form-row-modal">
+                            <label for="nordpool_provider_name">Provider Name</label>
+                            {{ nordpool_provider_form.name(class="form-control", id="nordpool_provider_name", placeholder="e.g., Nord Pool Belgium") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="nordpool_provider_area">Area Code</label>
+                            {{ nordpool_provider_form.area(class="form-control", id="nordpool_provider_area", placeholder="e.g., BE, NL, DE_LU") }}
+                        </div>
+                        <button type="submit" id="nordpoolProviderSubmitButton" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Add Provider</button>
+                    </form>
+                </div>
+
+                <!-- Action Provider Form -->
+                <div id="actionProviderForm" class="component-form" style="display:none">
+                    <form method="POST" action="{{ url_for('settings_energy.manage_provider') }}">
+                        {{ action_provider_form.hidden_tag() }}
+                        <input type="hidden" name="action" id="actionProviderAction" value="add_provider">
+                        <input type="hidden" name="provider_type" value="action">
+                        <input type="hidden" name="index" id="actionProviderIndex" value="">
+                        <div class="form-row-modal">
+                            <label for="action_provider_name">Provider Name</label>
+                            {{ action_provider_form.name(class="form-control", id="action_provider_name", placeholder="e.g., Custom Price Action") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="action_provider_action_domain">Action Domain</label>
+                            {{ action_provider_form.action_domain(class="form-control", id="action_provider_action_domain", placeholder="e.g., nordpool") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="action_provider_action_service">Action Service</label>
+                            {{ action_provider_form.action_service(class="form-control", id="action_provider_action_service", placeholder="e.g., get_prices_for_date") }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="action_provider_action_data">Action Data (JSON)</label>
+                            {{ action_provider_form.action_data(class="form-control", id="action_provider_action_data", placeholder='e.g., {"area": "BE"}') }}
+                        </div>
+                        <div class="form-row-modal">
+                            <label for="action_provider_response_price_key">Response Price Key</label>
+                            {{ action_provider_form.response_price_key(class="form-control", id="action_provider_response_price_key", placeholder="e.g., prices") }}
+                        </div>
+                        <button type="submit" id="actionProviderSubmitButton" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Add Provider</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
         <!-- Add Component Dialog -->
         <div id="addComponentModal" class="modal" style="display:none">
             <div class="modal-content">
@@ -197,8 +350,13 @@
                             {{ variable_form.name(class="form-control", id="variable_name", placeholder="e.g., Dynamic Pricing") }}
                         </div>
                         <div class="form-row-modal">
-                            <label for="variable_variable_price_sensor">Price Sensor</label>
-                            {{ variable_form.variable_price_sensor(class="form-control", id="variable_variable_price_sensor", placeholder="e.g., sensor.electricity_price") }}
+                            <label for="variable_price_provider_name">Price Provider</label>
+                            <select class="form-control" id="variable_price_provider_name" name="price_provider_name" required>
+                                <option value="">Select a price provider</option>
+                                {% for pname in provider_names %}
+                                <option value="{{ pname }}">{{ pname }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
                         <div class="form-row-modal">
                             <label for="variable_variable_price_multiplier">Price Multiplier</label>

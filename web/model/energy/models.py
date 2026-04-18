@@ -264,13 +264,14 @@ class EnergyContractComponent:
         raise NotImplementedError('Subclasses must implement from_dict')
 
     def calculate_cost(
-        self, period_data: 'EnergyPeriodData', is_monthly: bool = True
+        self, period_data: 'EnergyPeriodData', is_monthly: bool = True, ha_connector: Any = None
     ) -> Tuple[float, 'EnergyCostBreakdown']:
         """Calculate cost for a given energy period
 
         Args:
             period_data: EnergyPeriodData containing measurements for the period
             is_monthly: True for monthly calculation, False for yearly
+            ha_connector: HAConnector instance for providers that need HA access
 
         Returns:
             Tuple of (total_cost_in_euros, EnergyCostBreakdown with details)
@@ -305,13 +306,8 @@ class ConstantComponent(EnergyContractComponent):
         )
 
     def calculate_cost(
-        self, period_data: 'EnergyPeriodData', is_monthly: bool = True
+        self, period_data: 'EnergyPeriodData', is_monthly: bool = True, ha_connector: Any = None
     ) -> Tuple[float, 'EnergyCostBreakdown']:
-        """Calculate constant component cost
-
-        For monthly calculations with a yearly period, divide by 12.
-        For yearly calculations with a monthly period, multiply by 12.
-        """
         if self.period == 'month':
             # Monthly fee
             if is_monthly:
@@ -392,7 +388,7 @@ class FixedComponent(EnergyContractComponent):
         return sum((entry.get('change') or 0.0) for entry in sensor_history[1:] if (entry.get('change') or 0.0) > 0.0)
 
     def calculate_cost(
-        self, period_data: 'EnergyPeriodData', is_monthly: bool = True
+        self, period_data: 'EnergyPeriodData', is_monthly: bool = True, ha_connector: Any = None
     ) -> Tuple[float, 'EnergyCostBreakdown']:
         energy_kwh = self._resolve_energy_kwh(period_data)
 
@@ -417,12 +413,12 @@ class FixedComponent(EnergyContractComponent):
 
 @dataclass
 class VariableComponent(EnergyContractComponent):
-    """Variable price component based on real-time sensor
+    """Variable price component based on an energy price provider
 
     Calculates cost using exact integration of Price(t) * Energy_Delta(t)
     """
 
-    variable_price_sensor: str = ''
+    price_provider_name: str = ''
     variable_price_multiplier: float = 1.0
     variable_price_constant: float = 0.0
     is_injection_reward: bool = False
@@ -432,7 +428,7 @@ class VariableComponent(EnergyContractComponent):
         base = super().to_dict()
         base.update(
             {
-                'variable_price_sensor': self.variable_price_sensor,
+                'price_provider_name': self.price_provider_name,
                 'variable_price_multiplier': self.variable_price_multiplier,
                 'variable_price_constant': self.variable_price_constant,
                 'is_injection_reward': self.is_injection_reward,
@@ -446,7 +442,7 @@ class VariableComponent(EnergyContractComponent):
         return cls(
             name=data.get('name', ''),
             multiplier=data.get('multiplier', 1.0),
-            variable_price_sensor=data.get('variable_price_sensor', ''),
+            price_provider_name=data.get('price_provider_name', ''),
             variable_price_multiplier=data.get('variable_price_multiplier', 1.0),
             variable_price_constant=data.get('variable_price_constant', 0.0),
             is_injection_reward=data.get('is_injection_reward', False),
@@ -454,32 +450,44 @@ class VariableComponent(EnergyContractComponent):
         )
 
     def calculate_cost(
-        self, period_data: 'EnergyPeriodData', is_monthly: bool = True
+        self, period_data: 'EnergyPeriodData', is_monthly: bool = True, ha_connector: Any = None
     ) -> Tuple[float, 'EnergyCostBreakdown']:
-        """Calculates cost using 15-minute interval statistics.
+        from web.model.data.data_connector import DataConnector, PriceProviderManager
 
-        Each 15-minute interval provides:
-        - 'mean': average price during the interval (for price sensors)
-        - 'change': energy consumed/injected during the interval (for energy sensors)
-
-        Cost for each interval = (mean_price * multiplier + constant) * energy_change
-        This eliminates the need for complex integration or interpolation.
-        """
-        price_history = period_data.sensor_history.get(self.variable_price_sensor, [])
         energy_sensor_key = self.energy_sensor or ENERGY_SENSOR_DEFAULT
         energy_history = period_data.sensor_history.get(energy_sensor_key, [])
 
-        if not price_history or not energy_history:
+        if not energy_history:
             return 0.0, EnergyCostBreakdown(
-                self.name, self.__class__.__name__, 0.0, self.multiplier, 'No sensor history data available'
+                self.name, self.__class__.__name__, 0.0, self.multiplier, 'No energy history data available'
             )
 
-        price_by_start = {entry['start']: entry.get('mean') or 0.0 for entry in price_history}
+        if not self.price_provider_name:
+            return 0.0, EnergyCostBreakdown(
+                self.name, self.__class__.__name__, 0.0, self.multiplier, 'No price provider configured'
+            )
+
+        provider_manager = PriceProviderManager(DataConnector())
+        provider = provider_manager.get_by_name(self.price_provider_name)
+        if not provider:
+            return 0.0, EnergyCostBreakdown(
+                self.name,
+                self.__class__.__name__,
+                0.0,
+                self.multiplier,
+                f'Price provider "{self.price_provider_name}" not found',
+            )
+
+        first_ts = energy_history[0].get('start', 0)
+        last_ts = energy_history[-1].get('start', 0)
+        start_dt = datetime.fromtimestamp(first_ts / 1000.0)
+        end_dt = datetime.fromtimestamp(last_ts / 1000.0)
+
+        price_map = provider.get_kwh_prices(start_dt, end_dt, ha_connector)
 
         total_cost = 0.0
         total_energy_delta = 0.0
 
-        # First change value is not reliable
         for entry in energy_history[1:]:
             start = entry['start']
             energy_change = entry.get('change') or 0.0
@@ -487,7 +495,9 @@ class VariableComponent(EnergyContractComponent):
             if energy_change <= 0:
                 continue
 
-            price = price_by_start.get(start, 0.0)
+            price = price_map.get(start)
+            if price is None:
+                price = 0.0
 
             effective_price = (price * self.variable_price_multiplier) + self.variable_price_constant
             segment_cost = effective_price * energy_change
@@ -544,7 +554,7 @@ class CapacityComponent(EnergyContractComponent):
         )
 
     def calculate_cost(
-        self, period_data: 'EnergyPeriodData', is_monthly: bool = True
+        self, period_data: 'EnergyPeriodData', is_monthly: bool = True, ha_connector: Any = None
     ) -> Tuple[float, 'EnergyCostBreakdown']:
         max_power_kw = period_data.max_power_kw
         max_power_timestamp = period_data.max_power_timestamp
@@ -622,6 +632,7 @@ class PercentageComponent(EnergyContractComponent):
         self,
         period_data: 'EnergyPeriodData',
         is_monthly: bool = True,
+        ha_connector: Any = None,
         component_breakdowns: List['EnergyCostBreakdown'] = None,
     ) -> Tuple[float, 'EnergyCostBreakdown']:
         base_sum = 0.0
@@ -699,29 +710,35 @@ class EnergyContract:
         )
 
     def _calculate_cost(
-        self, period_data: 'EnergyPeriodData', is_monthly: bool
+        self, period_data: 'EnergyPeriodData', is_monthly: bool, ha_connector: Any = None
     ) -> Tuple[float, List['EnergyCostBreakdown']]:
         total_cost = 0.0
         breakdowns: List['EnergyCostBreakdown'] = [None] * len(self.components)
 
         for i, component in enumerate(self.components):
             if not isinstance(component, PercentageComponent):
-                cost, breakdown = component.calculate_cost(period_data, is_monthly=is_monthly)
+                cost, breakdown = component.calculate_cost(
+                    period_data, is_monthly=is_monthly, ha_connector=ha_connector
+                )
                 total_cost += cost
                 breakdowns[i] = breakdown
 
         for i, component in enumerate(self.components):
             if isinstance(component, PercentageComponent):
                 cost, breakdown = component.calculate_cost(
-                    period_data, is_monthly=is_monthly, component_breakdowns=breakdowns
+                    period_data, is_monthly=is_monthly, ha_connector=ha_connector, component_breakdowns=breakdowns
                 )
                 total_cost += cost
                 breakdowns[i] = breakdown
 
         return total_cost, breakdowns
 
-    def calculate_monthly_cost(self, period_data: 'EnergyPeriodData') -> Tuple[float, List['EnergyCostBreakdown']]:
-        return self._calculate_cost(period_data, is_monthly=True)
+    def calculate_monthly_cost(
+        self, period_data: 'EnergyPeriodData', ha_connector: Any = None
+    ) -> Tuple[float, List['EnergyCostBreakdown']]:
+        return self._calculate_cost(period_data, is_monthly=True, ha_connector=ha_connector)
 
-    def calculate_yearly_cost(self, period_data: 'EnergyPeriodData') -> Tuple[float, List['EnergyCostBreakdown']]:
-        return self._calculate_cost(period_data, is_monthly=False)
+    def calculate_yearly_cost(
+        self, period_data: 'EnergyPeriodData', ha_connector: Any = None
+    ) -> Tuple[float, List['EnergyCostBreakdown']]:
+        return self._calculate_cost(period_data, is_monthly=False, ha_connector=ha_connector)

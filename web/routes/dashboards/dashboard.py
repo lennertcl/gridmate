@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import requests as http_requests
 from flask import Blueprint, jsonify, render_template, request
@@ -13,6 +13,7 @@ from web.model.data.data_connector import (
     DeviceTypeManager,
     EnergyContractManager,
     EnergyDataService,
+    PriceProviderManager,
     SolarManager,
 )
 from web.model.energy.cost_calculator import CostCalculationService
@@ -32,6 +33,7 @@ energy_data_service = EnergyDataService(data_connector)
 device_manager = DeviceManager(data_connector)
 device_type_manager = DeviceTypeManager(data_connector)
 solar_manager = SolarManager(data_connector)
+price_provider_manager = PriceProviderManager(data_connector)
 
 
 @dashboard_bp.route('/dashboard/live')
@@ -40,15 +42,9 @@ def live():
     solar = solar_manager.get_config()
     contract = energy_contract_manager.get_config()
 
-    price_sensors = []
-    for comp in contract.components:
-        if isinstance(comp, VariableComponent) and comp.variable_price_sensor:
-            price_sensors.append(
-                {
-                    'entity_id': comp.variable_price_sensor,
-                    'name': comp.name,
-                }
-            )
+    has_variable_pricing = any(
+        isinstance(c, VariableComponent) and c.price_provider_name for c in contract.components
+    ) or bool(price_provider_manager.get_all())
 
     solar_sensors = {}
     if solar.is_configured:
@@ -78,7 +74,7 @@ def live():
     return render_template(
         'dashboard/live.html',
         **ha_sensors,
-        price_sensors=price_sensors,
+        has_variable_pricing=has_variable_pricing,
         solar_sensors=solar_sensors,
         solar_configured=solar.is_configured,
     )
@@ -127,6 +123,32 @@ def _detect_ha_url():
     except http_requests.RequestException:
         pass
     return 'http://homeassistant.local:8123'
+
+
+@dashboard_bp.route('/api/energy-prices')
+def energy_prices():
+    providers = price_provider_manager.get_all()
+    if not providers:
+        return jsonify({'providers': {}})
+
+    now = datetime.now()
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(days=2)
+
+    from web.model.data.ha_connector import HAConnector
+
+    ha_connector = HAConnector()
+
+    result = {}
+    for provider in providers:
+        try:
+            prices = provider.get_kwh_prices(start, end, ha_connector)
+            result[provider.name] = {str(k): v for k, v in prices.items()}
+        except Exception as e:
+            logger.warning(f'Failed to fetch prices for provider {provider.name}: {e}')
+            result[provider.name] = {}
+
+    return jsonify({'providers': result})
 
 
 @dashboard_bp.route('/dashboard/solar')
@@ -229,7 +251,7 @@ def energy_costs():
     form.year.data = year
 
     contract = energy_contract_manager.get_config()
-    calculator = CostCalculationService(contract)
+    calculator = CostCalculationService(contract, ha_connector=energy_data_service.ha_connector)
 
     # Fetch real energy data from Home Assistant
     ha_available = energy_data_service.is_ha_available()

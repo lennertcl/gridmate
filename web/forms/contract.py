@@ -21,7 +21,7 @@ class FixedComponentForm(FlaskForm):
 class VariableComponentForm(FlaskForm):
     name = StringField('Component Name', validators=[DataRequired(), Length(min=1, max=100)])
     multiplier = FloatField('Multiplier', validators=[DataRequired(), NumberRange(min=0.0)])
-    variable_price_sensor = StringField('Price Sensor', validators=[DataRequired(), Length(min=1, max=200)])
+    price_provider_name = StringField('Price Provider', validators=[DataRequired(), Length(min=1, max=100)])
     variable_price_multiplier = FloatField('Price Multiplier', validators=[DataRequired()], default=1.0)
     variable_price_constant = FloatField('Price Constant (€/kWh)', validators=[DataRequired()], default=0.0)
     is_injection_reward = BooleanField('Is Injection Reward', default=False)

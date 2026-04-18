@@ -107,6 +107,43 @@ function renderEnergyPlanChart(result) {
         });
     }
 
+    if (result.load_cost_forecast && result.load_cost_forecast.length > 0) {
+        datasets.push({
+            label: 'Import Price',
+            data: result.load_cost_forecast.map(function(p) { return p.value; }),
+            type: 'line',
+            borderColor: '#00d97e',
+            backgroundColor: 'rgba(0, 217, 126, 0.12)',
+            yAxisID: 'y_price',
+            fill: false,
+            tension: 0,
+            stepped: 'after',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHitRadius: 8,
+            order: 0,
+        });
+    }
+
+    if (result.prod_price_forecast && result.prod_price_forecast.length > 0) {
+        datasets.push({
+            label: 'Export Price',
+            data: result.prod_price_forecast.map(function(p) { return p.value; }),
+            type: 'line',
+            borderColor: '#ff8c42',
+            backgroundColor: 'rgba(255, 140, 66, 0.12)',
+            borderDash: [6, 4],
+            yAxisID: 'y_price',
+            fill: false,
+            tension: 0,
+            stepped: 'after',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHitRadius: 8,
+            order: 0,
+        });
+    }
+
     if (result.battery_power_forecast && result.battery_power_forecast.length > 0) {
         var chargeValues = result.battery_power_forecast.map(function(p) {
             return p.value < 0 ? -p.value : 0;
@@ -160,6 +197,9 @@ function renderEnergyPlanChart(result) {
                 tooltip: {
                     callbacks: {
                         label: function(ctx) {
+                            if (ctx.dataset.yAxisID === 'y_price') {
+                                return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(3) + ' €/kWh';
+                            }
                             return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + ' kW';
                         },
                     },
@@ -184,6 +224,17 @@ function renderEnergyPlanChart(result) {
                         color: 'rgba(0, 0, 0, 0.05)',
                     },
                     beginAtZero: true,
+                },
+                y_price: {
+                    position: 'right',
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Price (€/kWh)',
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
                 },
             },
         },

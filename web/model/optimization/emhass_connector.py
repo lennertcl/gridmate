@@ -132,7 +132,7 @@ class EmhassConnector(OptimizerConnector):
             logger.debug('Day-ahead raw response [%s]: %s', response.status_code, response.text)
             response.raise_for_status()
             self._publish_results()
-            return self._read_result_entities(emhass_config, config, 'dayahead')
+            return self._read_result_entities(emhass_config, config, 'dayahead', runtime_params)
         except requests.RequestException as e:
             logger.error(f'Day-ahead optimization failed: {e}')
             raise
@@ -154,7 +154,7 @@ class EmhassConnector(OptimizerConnector):
             logger.debug('MPC raw response [%s]: %s', response.status_code, response.text)
             response.raise_for_status()
             self._publish_results()
-            return self._read_result_entities(emhass_config, config, 'mpc')
+            return self._read_result_entities(emhass_config, config, 'mpc', runtime_params)
         except requests.RequestException as e:
             logger.error(f'MPC optimization failed: {e}')
             raise
@@ -389,7 +389,7 @@ class EmhassConnector(OptimizerConnector):
         return max(0, min(index, horizon_steps))
 
     def _read_result_entities(
-        self, emhass_config: Dict, config: OptimizationConfig, optimization_type: str
+        self, emhass_config: Dict, config: OptimizationConfig, optimization_type: str, runtime_params: Dict
     ) -> OptimizationResult:
         prefix = emhass_config.get('entity_prefix', '')
         time_step = emhass_config.get('optimization_time_step', 30)
@@ -426,6 +426,16 @@ class EmhassConnector(OptimizerConnector):
         result.pv_forecast = self._parse_forecast_entity(states.get(entity_map['pv']), to_kw=True)
         result.load_forecast = self._parse_forecast_entity(states.get(entity_map['load']), to_kw=True)
         result.grid_forecast = self._parse_forecast_entity(states.get(entity_map['grid']), to_kw=True)
+        result.load_cost_forecast = self._build_runtime_timeseries(
+            runtime_params.get('load_cost_forecast', []),
+            result.load_forecast or result.grid_forecast or result.pv_forecast,
+            time_step,
+        )
+        result.prod_price_forecast = self._build_runtime_timeseries(
+            runtime_params.get('prod_price_forecast', []),
+            result.load_forecast or result.grid_forecast or result.pv_forecast,
+            time_step,
+        )
 
         if battery_device:
             result.battery_power_forecast = self._parse_forecast_entity(
@@ -489,6 +499,22 @@ class EmhassConnector(OptimizerConnector):
 
         self._compute_summary(result)
         return result
+
+    def _build_runtime_timeseries(
+        self, values: List[float], reference_points: List[TimeseriesPoint], time_step: int
+    ) -> List[TimeseriesPoint]:
+        if not values:
+            return []
+
+        if reference_points:
+            start_time = reference_points[0].timestamp
+        else:
+            start_time = datetime.now().replace(second=0, microsecond=0)
+
+        return [
+            TimeseriesPoint(timestamp=start_time + timedelta(minutes=index * time_step), value=float(value))
+            for index, value in enumerate(values)
+        ]
 
     def _parse_forecast_entity(
         self, state_data: Optional[Dict], to_kw: bool = False, fallback_attr: str = None

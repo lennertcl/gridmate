@@ -398,6 +398,8 @@ class OptimizationResult:
     grid_forecast: List[TimeseriesPoint] = field(default_factory=list)
     battery_soc_forecast: List[TimeseriesPoint] = field(default_factory=list)
     battery_power_forecast: List[TimeseriesPoint] = field(default_factory=list)
+    load_cost_forecast: List[TimeseriesPoint] = field(default_factory=list)
+    prod_price_forecast: List[TimeseriesPoint] = field(default_factory=list)
 
     device_schedules: Dict[str, DeviceSchedule] = field(default_factory=dict)
     device_power_forecasts: Dict[str, List[TimeseriesPoint]] = field(default_factory=dict)
@@ -418,6 +420,8 @@ class OptimizationResult:
             'grid_forecast': [p.to_dict() for p in self.grid_forecast],
             'battery_soc_forecast': [p.to_dict() for p in self.battery_soc_forecast],
             'battery_power_forecast': [p.to_dict() for p in self.battery_power_forecast],
+            'load_cost_forecast': [p.to_dict() for p in self.load_cost_forecast],
+            'prod_price_forecast': [p.to_dict() for p in self.prod_price_forecast],
             'device_schedules': {k: v.to_dict() for k, v in self.device_schedules.items()},
             'device_power_forecasts': {k: [p.to_dict() for p in v] for k, v in self.device_power_forecasts.items()},
             'total_cost_eur': self.total_cost_eur,
@@ -452,6 +456,8 @@ class OptimizationResult:
             grid_forecast=[TimeseriesPoint.from_dict(p) for p in data.get('grid_forecast', [])],
             battery_soc_forecast=[TimeseriesPoint.from_dict(p) for p in data.get('battery_soc_forecast', [])],
             battery_power_forecast=[TimeseriesPoint.from_dict(p) for p in data.get('battery_power_forecast', [])],
+            load_cost_forecast=[TimeseriesPoint.from_dict(p) for p in data.get('load_cost_forecast', [])],
+            prod_price_forecast=[TimeseriesPoint.from_dict(p) for p in data.get('prod_price_forecast', [])],
             device_schedules=schedules,
             device_power_forecasts=device_power_forecasts,
             total_cost_eur=float(data.get('total_cost_eur', 0.0)),
