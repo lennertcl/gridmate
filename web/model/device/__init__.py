@@ -1,5 +1,11 @@
 import web.model.device.device_types  # noqa: F401 — triggers __init_subclass__ registration
-from web.model.device.device_type import DeviceType, get_device_type_registry
+from web.model.device.device_type import (
+    DEVICE_TYPE_SECTION_PRIORITY,
+    MAX_DEVICE_CARD_SECTIONS,
+    DeviceType,
+    get_device_sections,
+    get_device_type_registry,
+)
 from web.model.device.models import (
     PARAM_TYPE_BOOL,
     PARAM_TYPE_ENTITY,
@@ -21,5 +27,8 @@ __all__ = [
     'PARAM_TYPE_BOOL',
     'PARAM_TYPE_ENTITY',
     'VALID_PARAM_TYPES',
+    'DEVICE_TYPE_SECTION_PRIORITY',
+    'MAX_DEVICE_CARD_SECTIONS',
     'get_device_type_registry',
+    'get_device_sections',
 ]

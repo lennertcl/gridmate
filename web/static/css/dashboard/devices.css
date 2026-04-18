@@ -64,6 +64,62 @@
     gap: 0.5rem;
 }
 
+.device-toggle-wrapper {
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.device-detail-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.device-detail-header h2 {
+    margin-bottom: 0;
+}
+
+.device-detail-header p {
+    margin-bottom: 0;
+}
+
+.device-detail-toggle {
+    flex-shrink: 0;
+    padding-top: 0.25rem;
+}
+
+.device-dashboard-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.device-type-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.device-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding-bottom: 0.2rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.device-section-header i {
+    font-size: 0.7rem;
+    width: 14px;
+    text-align: center;
+}
+
 .device-param-row {
     display: flex;
     justify-content: space-between;
@@ -266,6 +322,99 @@
     margin-top: 0.15rem;
     font-family: monospace;
     opacity: 0.7;
+}
+
+.section-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.metric-tile {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--color-bg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    min-width: 160px;
+    flex: 1 1 160px;
+    max-width: 280px;
+}
+
+.metric-tile-highlight {
+    border-left: 3px solid var(--color-primary);
+}
+
+.metric-icon {
+    font-size: 1.25rem;
+    color: var(--color-primary);
+    width: 32px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.metric-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.metric-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.metric-label {
+    font-size: 0.75rem;
+    color: var(--color-text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    font-weight: 500;
+}
+
+.section-link {
+    margin-top: 1rem;
+}
+
+.device-weekly-overview {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.device-weekly-overview h4 {
+    font-size: 0.85rem;
+    color: var(--color-text-light);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.weekly-badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.weekly-badge-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    min-width: 40px;
+}
+
+.weekly-badge-day {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--color-text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
 }
 
 .params-table .device-header,

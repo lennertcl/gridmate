@@ -15,46 +15,50 @@
     {% if devices %}
         {% for device in devices %}
         {% set pt = type_registry.get(device.primary_type) %}
+        {% set info = device_info[device.device_id] %}
         <a href="{{ url_for('dashboard.device_detail', device_id=device.device_id) }}" class="device-dashboard-card card">
             <div class="device-dashboard-header">
                 <i class="{{ pt.icon if pt else 'fas fa-plug' }} device-dashboard-icon"></i>
                 <div class="device-dashboard-info">
                     <strong class="device-dashboard-name">{{ device.name }}</strong>
                     <span class="device-dashboard-type">{{ pt.name if pt else device.primary_type }}</span>
-                    {% if device.secondary_types %}
-                    <span class="device-dashboard-secondary">+{{ device.secondary_types|length }} more type{{ 's' if device.secondary_types|length > 1 }}</span>
-                    {% endif %}
                 </div>
+                {% if info.is_automatable and info.control_entity %}
+                <div class="device-toggle-wrapper">
+                    <label class="toggle-label toggle-sm">
+                        <input type="checkbox" class="toggle-input" data-entity-toggle="{{ info.control_entity }}">
+                        <span class="toggle-switch"></span>
+                    </label>
+                </div>
+                {% endif %}
             </div>
-            <div class="device-dashboard-params">
-                {% if device.custom_parameters %}
-                    {% set all_p = device.get_all_parameters(type_registry) %}
-                    {% for key, value in device.custom_parameters.items() %}
-                    {% if loop.index <= 3 %}
-                    {% set param_def = all_p.get(key) %}
+            <div class="device-dashboard-sections">
+                {% for type_id, dt in info.sections %}
+                <div class="device-type-section">
+                    <div class="device-section-header">
+                        <i class="{{ dt.icon }}"></i>
+                        <span>{{ dt.name }}</span>
+                    </div>
+                    {% set ns = namespace(count=0) %}
+                    {% for param_name, param_def in dt.custom_parameters.items() %}
+                    {% set value = device.custom_parameters.get(param_name) %}
+                    {% if value and ns.count < 2 %}
+                    {% set ns.count = ns.count + 1 %}
                     <div class="device-param-row">
-                        <span class="device-param-label">{{ param_def.label if param_def else key }}</span>
-                        {% if param_def and param_def.param_type == 'entity' and value %}
+                        <span class="device-param-label">{{ param_def.label }}</span>
+                        {% if param_def.param_type == 'entity' %}
                         <span class="entity-state entity-state-compact entity-state-loading" data-entity-id="{{ value }}">
                             <span class="entity-state-indicator"></span>
                             <span class="entity-state-value">···</span>
                         </span>
                         {% else %}
-                        <span class="device-param-value">{{ value }}{% if param_def and param_def.unit %} {{ param_def.unit }}{% endif %}</span>
+                        <span class="device-param-value">{{ value }}{% if param_def.unit %} {{ param_def.unit }}{% endif %}</span>
                         {% endif %}
                     </div>
                     {% endif %}
                     {% endfor %}
-                    {% if device.custom_parameters|length > 3 %}
-                    <div class="device-param-row">
-                        <span class="device-param-more">+{{ device.custom_parameters|length - 3 }} more</span>
-                    </div>
-                    {% endif %}
-                {% else %}
-                    <div class="device-param-row">
-                        <span class="device-param-label empty-param">No parameters configured</span>
-                    </div>
-                {% endif %}
+                </div>
+                {% endfor %}
             </div>
         </a>
         {% endfor %}

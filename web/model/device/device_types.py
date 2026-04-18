@@ -55,13 +55,6 @@ class AutomatableDevice(DeviceType):
                 description='HA entity used to start/stop the device',
                 placeholder='switch.device_control',
             ),
-            'status_sensor': CustomParameterDefinition(
-                name='status_sensor',
-                label='Status Sensor',
-                param_type='entity',
-                description='HA entity that reports current device status',
-                placeholder='sensor.device_status',
-            ),
         }
 
 

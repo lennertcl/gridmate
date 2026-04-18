@@ -3,99 +3,433 @@
 {% block title %}{{ device.name }} - GridMate{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h2>
-        <i class="{{ primary_type.icon if primary_type else 'fas fa-plug' }}"></i>
-        {{ device.name }}
-    </h2>
-    <p>{{ primary_type.name if primary_type else device.primary_type }} &middot; {{ device.device_id }}</p>
+<div class="page-header device-detail-header">
+    <div class="device-detail-title">
+        <h2>
+            <i class="{{ primary_type.icon if primary_type else 'fas fa-plug' }}"></i>
+            {{ device.name }}
+        </h2>
+        <p>{{ primary_type.name if primary_type else device.primary_type }}</p>
+    </div>
+    {% if is_automatable and control_entity %}
+    <div class="device-detail-toggle">
+        <div class="device-toggle-wrapper">
+            <label class="toggle-label">
+                <input type="checkbox" class="toggle-input" data-entity-toggle="{{ control_entity }}">
+                <span class="toggle-switch"></span>
+            </label>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <div class="dashboard-grid">
-    <section class="card">
-        <h3><i class="fas fa-info-circle"></i> Device Info</h3>
-        <div class="detail-grid">
-            <div class="detail-row">
-                <span class="detail-label">Name</span>
-                <span class="detail-value">{{ device.name }}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Device ID</span>
-                <span class="detail-value">{{ device.device_id }}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Created</span>
-                <span class="detail-value">{{ device.created_at.strftime('%Y-%m-%d %H:%M') if device.created_at else '-' }}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Last Updated</span>
-                <span class="detail-value">{{ device.last_updated.strftime('%Y-%m-%d %H:%M') if device.last_updated else '-' }}</span>
-            </div>
+    {% if is_deferrable %}
+    <section class="card card-full-width">
+        <h3><i class="fas fa-calendar-alt"></i> Schedule</h3>
+        {% if today_entry and today_entry.num_cycles > 0 %}
+        <div class="device-schedule-info">
+            <span class="schedule-summary">
+                <i class="fas fa-calendar-day"></i>
+                {{ today_entry.num_cycles }} cycle{{ 's' if today_entry.num_cycles > 1 else '' }} today{% if today_entry.num_cycles > 1 and today_entry.hours_between_runs > 0 %}, {{ today_entry.hours_between_runs }}h between runs{% endif %}
+            </span>
+            {% if today_entry.earliest_start_time or today_entry.latest_end_time %}
+            <span class="schedule-summary">
+                <i class="fas fa-clock"></i>
+                {% if today_entry.earliest_start_time and today_entry.latest_end_time %}{{ today_entry.earliest_start_time }} - {{ today_entry.latest_end_time }}{% elif today_entry.earliest_start_time %}From {{ today_entry.earliest_start_time }}{% else %}Until {{ today_entry.latest_end_time }}{% endif %}
+            </span>
+            {% endif %}
         </div>
-    </section>
-
-    {% if device.secondary_types %}
-    <section class="card">
-        <h3><i class="fas fa-layer-group"></i> Types</h3>
-        <div class="type-badge-list">
-            <div class="type-badge-item">
-                <i class="{{ primary_type.icon if primary_type else 'fas fa-plug' }}"></i>
-                <span>{{ primary_type.name if primary_type else device.primary_type }}</span>
-            </div>
-            {% for st_id in device.secondary_types %}
-            {% set st = type_registry.get(st_id) %}
-            <div class="type-badge-item">
-                <i class="{{ st.icon if st else 'fas fa-plug' }}"></i>
-                <span>{{ st.name if st else st_id }}</span>
+        {% endif %}
+        {% if schedule and schedule.schedule_entries %}
+        <div class="device-schedule-blocks">
+            {% for entry in schedule.schedule_entries %}
+            <div class="schedule-block {% if entry.is_active %}active{% endif %}">
+                <span class="schedule-block-time">{{ entry.start_time.strftime('%H:%M') if entry.start_time.strftime is defined else entry.start_time }} - {{ entry.end_time.strftime('%H:%M') if entry.end_time.strftime is defined else entry.end_time }}</span>
+                <span class="schedule-block-power">{{ "%.0f" | format(entry.power_w) }} W</span>
             </div>
             {% endfor %}
         </div>
+        {% elif not today_entry or today_entry.num_cycles == 0 %}
+        <p class="device-timeline-empty">Not scheduled today</p>
+        {% else %}
+        <p class="device-timeline-empty">Waiting for next optimization run</p>
+        {% endif %}
+        {% if weekly_schedule_data %}
+        <div class="device-weekly-overview">
+            <h4>Weekly Overview</h4>
+            <div class="weekly-badges">
+                {% for day in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] %}
+                <div class="weekly-badge-item">
+                    <span class="weekly-badge-day">{{ day[:3]|title }}</span>
+                    <span class="ws-badge {% if weekly_schedule_data.get(day, 0) > 0 %}ws-badge-active{% else %}ws-badge-empty{% endif %}">{{ weekly_schedule_data.get(day, 0) }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </section>
     {% endif %}
 
-    <section class="card">
-        <h3><i class="fas fa-calendar-alt"></i> Schedule</h3>
-    </section>
-
+    {% for type_id, dt in sections %}
     <section class="card card-full-width">
-        <h3><i class="fas fa-sliders"></i> Parameters</h3>
-        {% if all_params %}
-        <div class="device-table params-table">
-            <div class="device-header">
-                <div class="col-param-name">Parameter</div>
-                <div class="col-param-value">Value</div>
+        <h3><i class="{{ dt.icon }}"></i> {{ dt.name }}</h3>
+
+        {% if type_id == 'energy_reporting_device' %}
+        <div class="section-metrics">
+            {% set power = device.custom_parameters.get('power_sensor') %}
+            {% set energy = device.custom_parameters.get('energy_sensor') %}
+            {% if power %}
+            <div class="metric-tile">
+                <div class="metric-icon"><i class="fas fa-bolt"></i></div>
+                <div class="metric-content">
+                    <span class="entity-state entity-state-loading" data-entity-id="{{ power }}">
+                        <span class="entity-state-indicator"></span>
+                        <span class="entity-state-value metric-value">···</span>
+                    </span>
+                    <span class="metric-label">Current Power</span>
+                </div>
             </div>
-            {% for param_name, param_def in all_params.items() %}
+            {% endif %}
+            {% if energy %}
+            <div class="metric-tile">
+                <div class="metric-icon"><i class="fas fa-chart-line"></i></div>
+                <div class="metric-content">
+                    <span class="entity-state entity-state-loading" data-entity-id="{{ energy }}">
+                        <span class="entity-state-indicator"></span>
+                        <span class="entity-state-value metric-value">···</span>
+                    </span>
+                    <span class="metric-label">Total Energy</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if not power and not energy %}
+            <p class="empty-state">No energy sensors configured</p>
+            {% endif %}
+        </div>
+
+        {% elif type_id == 'battery_device' %}
+        <div class="section-metrics">
+            {% set batt_level = device.custom_parameters.get('battery_level_sensor') %}
+            {% set capacity = device.custom_parameters.get('capacity_kwh') %}
+            {% set batt_power = device.custom_parameters.get('power_sensor') %}
+            {% if batt_level %}
+            <div class="metric-tile metric-tile-highlight">
+                <div class="metric-icon"><i class="fas fa-battery-three-quarters"></i></div>
+                <div class="metric-content">
+                    <span class="entity-state entity-state-loading" data-entity-id="{{ batt_level }}">
+                        <span class="entity-state-indicator"></span>
+                        <span class="entity-state-value metric-value">···</span>
+                    </span>
+                    <span class="metric-label">Battery Level</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if capacity %}
+            <div class="metric-tile">
+                <div class="metric-icon"><i class="fas fa-database"></i></div>
+                <div class="metric-content">
+                    <span class="metric-value">{{ capacity }} kWh</span>
+                    <span class="metric-label">Capacity</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if batt_power %}
+            <div class="metric-tile">
+                <div class="metric-icon"><i class="fas fa-arrows-up-down"></i></div>
+                <div class="metric-content">
+                    <span class="entity-state entity-state-loading" data-entity-id="{{ batt_power }}">
+                        <span class="entity-state-indicator"></span>
+                        <span class="entity-state-value metric-value">···</span>
+                    </span>
+                    <span class="metric-label">Charge / Discharge</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        {% elif type_id == 'deferrable_load' %}
+        <div class="section-metrics">
+            {% set nom_power = device.custom_parameters.get('opt_nominal_power') %}
+            {% set duration = device.custom_parameters.get('opt_duration_hours') %}
+            {% set start = device.custom_parameters.get('opt_earliest_start') %}
+            {% set end = device.custom_parameters.get('opt_latest_end') %}
+            {% set priority = device.custom_parameters.get('opt_priority', 5) %}
+            {% if nom_power %}
+            <div class="metric-tile">
+                <div class="metric-icon"><i class="fas fa-bolt"></i></div>
+                <div class="metric-content">
+                    <span class="metric-value">{{ nom_power }} W</span>
+                    <span class="metric-label">Nominal Power</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if duration %}
+            <div class="metric-tile">
+                <div class="metric-icon"><i class="fas fa-hourglass-half"></i></div>
+                <div class="metric-content">
+                    <span class="metric-value">{{ duration }}h</span>
+                    <span class="metric-label">Duration</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if start or end %}
+            <div class="metric-tile">
+                <div class="metric-icon"><i class="fas fa-clock"></i></div>
+                <div class="metric-content">
+                    <span class="metric-value">{{ start or '00:00' }} – {{ end or '23:59' }}</span>
+                    <span class="metric-label">Operating Window</span>
+                </div>
+            </div>
+            {% endif %}
+            <div class="metric-tile">
+                <div class="metric-icon"><i class="fas fa-arrow-up-1-9"></i></div>
+                <div class="metric-content">
+                    <span class="metric-value">{{ priority }}</span>
+                    <span class="metric-label">Priority</span>
+                </div>
+            </div>
+        </div>
+
+        {% elif type_id == 'duration_reporting_device' %}
+        <div class="section-metrics">
+            {% set remaining = device.custom_parameters.get('remaining_time_sensor') %}
+            {% if remaining %}
+            <div class="metric-tile metric-tile-highlight">
+                <div class="metric-icon"><i class="fas fa-hourglass-half"></i></div>
+                <div class="metric-content">
+                    <span class="entity-state entity-state-loading" data-entity-id="{{ remaining }}">
+                        <span class="entity-state-indicator"></span>
+                        <span class="entity-state-value metric-value">···</span>
+                    </span>
+                    <span class="metric-label">Remaining Time</span>
+                </div>
+            </div>
+            {% else %}
+            <p class="empty-state">No duration sensor configured</p>
+            {% endif %}
+        </div>
+
+        {% elif type_id == 'home_battery' %}
+        <div class="section-metrics">
+            {% set max_charge = device.custom_parameters.get('max_charge_power') %}
+            {% set max_discharge = device.custom_parameters.get('max_discharge_power') %}
+            {% set mode_entity = device.custom_parameters.get('mode_select_entity') %}
+            {% if max_charge %}
+            <div class="metric-tile">
+                <div class="metric-icon"><i class="fas fa-arrow-up"></i></div>
+                <div class="metric-content">
+                    <span class="metric-value">{{ max_charge }} kW</span>
+                    <span class="metric-label">Max Charge</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if max_discharge %}
+            <div class="metric-tile">
+                <div class="metric-icon"><i class="fas fa-arrow-down"></i></div>
+                <div class="metric-content">
+                    <span class="metric-value">{{ max_discharge }} kW</span>
+                    <span class="metric-label">Max Discharge</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if mode_entity %}
+            <div class="metric-tile">
+                <div class="metric-icon"><i class="fas fa-sliders"></i></div>
+                <div class="metric-content">
+                    <span class="entity-state entity-state-loading" data-entity-id="{{ mode_entity }}">
+                        <span class="entity-state-indicator"></span>
+                        <span class="entity-state-value metric-value">···</span>
+                    </span>
+                    <span class="metric-label">Battery Mode</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="section-link">
+            <a href="{{ url_for('dashboard.device_detail', device_id=device.device_id) }}/battery" class="btn btn-secondary btn-sm"><i class="fas fa-chart-area"></i> Battery Dashboard</a>
+        </div>
+
+        {% elif type_id == 'electric_vehicle' %}
+        <div class="section-metrics">
+            {% set range_s = device.custom_parameters.get('range_sensor') %}
+            {% set charging = device.custom_parameters.get('charging_state_sensor') %}
+            {% if range_s %}
+            <div class="metric-tile metric-tile-highlight">
+                <div class="metric-icon"><i class="fas fa-road"></i></div>
+                <div class="metric-content">
+                    <span class="entity-state entity-state-loading" data-entity-id="{{ range_s }}">
+                        <span class="entity-state-indicator"></span>
+                        <span class="entity-state-value metric-value">···</span>
+                    </span>
+                    <span class="metric-label">Estimated Range</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if charging %}
+            <div class="metric-tile">
+                <div class="metric-icon"><i class="fas fa-plug-circle-bolt"></i></div>
+                <div class="metric-content">
+                    <span class="entity-state entity-state-loading" data-entity-id="{{ charging }}">
+                        <span class="entity-state-indicator"></span>
+                        <span class="entity-state-value metric-value">···</span>
+                    </span>
+                    <span class="metric-label">Charging State</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if not range_s and not charging %}
+            <p class="empty-state">No sensors configured</p>
+            {% endif %}
+        </div>
+
+        {% elif type_id == 'charging_station' %}
+        <div class="section-metrics">
+            {% set max_rate = device.custom_parameters.get('max_charge_rate') %}
+            {% set session = device.custom_parameters.get('session_energy_sensor') %}
+            {% if max_rate %}
+            <div class="metric-tile">
+                <div class="metric-icon"><i class="fas fa-gauge-high"></i></div>
+                <div class="metric-content">
+                    <span class="metric-value">{{ max_rate }} kW</span>
+                    <span class="metric-label">Max Charge Rate</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if session %}
+            <div class="metric-tile">
+                <div class="metric-icon"><i class="fas fa-charging-station"></i></div>
+                <div class="metric-content">
+                    <span class="entity-state entity-state-loading" data-entity-id="{{ session }}">
+                        <span class="entity-state-indicator"></span>
+                        <span class="entity-state-value metric-value">···</span>
+                    </span>
+                    <span class="metric-label">Session Energy</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if not max_rate and not session %}
+            <p class="empty-state">No parameters configured</p>
+            {% endif %}
+        </div>
+
+        {% elif type_id == 'heat_pump' %}
+        <div class="section-metrics">
+            {% set temp = device.custom_parameters.get('temperature_sensor') %}
+            {% set cop = device.custom_parameters.get('cop_sensor') %}
+            {% if temp %}
+            <div class="metric-tile metric-tile-highlight">
+                <div class="metric-icon"><i class="fas fa-thermometer-half"></i></div>
+                <div class="metric-content">
+                    <span class="entity-state entity-state-loading" data-entity-id="{{ temp }}">
+                        <span class="entity-state-indicator"></span>
+                        <span class="entity-state-value metric-value">···</span>
+                    </span>
+                    <span class="metric-label">Temperature</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if cop %}
+            <div class="metric-tile">
+                <div class="metric-icon"><i class="fas fa-chart-simple"></i></div>
+                <div class="metric-content">
+                    <span class="entity-state entity-state-loading" data-entity-id="{{ cop }}">
+                        <span class="entity-state-indicator"></span>
+                        <span class="entity-state-value metric-value">···</span>
+                    </span>
+                    <span class="metric-label">COP</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if not temp and not cop %}
+            <p class="empty-state">No sensors configured</p>
+            {% endif %}
+        </div>
+
+        {% elif type_id == 'electric_heating' %}
+        <div class="section-metrics">
+            {% set temp = device.custom_parameters.get('temperature_sensor') %}
+            {% set thermostat = device.custom_parameters.get('thermostat_entity') %}
+            {% if temp %}
+            <div class="metric-tile metric-tile-highlight">
+                <div class="metric-icon"><i class="fas fa-thermometer-half"></i></div>
+                <div class="metric-content">
+                    <span class="entity-state entity-state-loading" data-entity-id="{{ temp }}">
+                        <span class="entity-state-indicator"></span>
+                        <span class="entity-state-value metric-value">···</span>
+                    </span>
+                    <span class="metric-label">Temperature</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if thermostat %}
+            <div class="metric-tile">
+                <div class="metric-icon"><i class="fas fa-temperature-arrow-up"></i></div>
+                <div class="metric-content">
+                    <span class="entity-state entity-state-loading" data-entity-id="{{ thermostat }}">
+                        <span class="entity-state-indicator"></span>
+                        <span class="entity-state-value metric-value">···</span>
+                    </span>
+                    <span class="metric-label">Thermostat</span>
+                </div>
+            </div>
+            {% endif %}
+            {% if not temp and not thermostat %}
+            <p class="empty-state">No sensors configured</p>
+            {% endif %}
+        </div>
+
+        {% elif type_id == 'water_heater' %}
+        <div class="section-metrics">
+            {% set temp = device.custom_parameters.get('temperature_sensor') %}
+            {% if temp %}
+            <div class="metric-tile metric-tile-highlight">
+                <div class="metric-icon"><i class="fas fa-thermometer-half"></i></div>
+                <div class="metric-content">
+                    <span class="entity-state entity-state-loading" data-entity-id="{{ temp }}">
+                        <span class="entity-state-indicator"></span>
+                        <span class="entity-state-value metric-value">···</span>
+                    </span>
+                    <span class="metric-label">Water Temperature</span>
+                </div>
+            </div>
+            {% else %}
+            <p class="empty-state">No temperature sensor configured</p>
+            {% endif %}
+        </div>
+
+        {% else %}
+        {% set ns = namespace(has_values=false) %}
+        {% for param_name, param_def in dt.custom_parameters.items() %}
+        {% if device.custom_parameters.get(param_name) %}{% set ns.has_values = true %}{% endif %}
+        {% endfor %}
+        {% if ns.has_values %}
+        <div class="section-metrics">
+            {% for param_name, param_def in dt.custom_parameters.items() %}
             {% set value = device.custom_parameters.get(param_name) %}
             {% if value %}
-            <div class="device-row">
-                <div class="col-param-name">
-                    <strong>{{ param_def.label }}</strong>
-                    {% if param_def.description %}
-                    <span class="device-id">{{ param_def.description }}</span>
-                    {% endif %}
-                </div>
-                <div class="col-param-value">
-                    {% if param_def.param_type == 'entity' and value %}
-                        <span class="entity-state entity-state-loading" data-entity-id="{{ value }}">
-                            <span class="entity-state-indicator"></span>
-                            <span class="entity-state-value">···</span>
-                        </span>
-                        <span class="entity-id-ref">{{ value }}</span>
-                    {% elif value %}
-                        <span class="detail-value">{{ value }}{% if param_def.unit %} {{ param_def.unit }}{% endif %}</span>
+            <div class="metric-tile">
+                <div class="metric-content">
+                    {% if param_def.param_type == 'entity' %}
+                    <span class="entity-state entity-state-loading" data-entity-id="{{ value }}">
+                        <span class="entity-state-indicator"></span>
+                        <span class="entity-state-value metric-value">···</span>
+                    </span>
                     {% else %}
-                        <span class="detail-value empty-param">-</span>
+                    <span class="metric-value">{{ value }}{% if param_def.unit %} {{ param_def.unit }}{% endif %}</span>
                     {% endif %}
+                    <span class="metric-label">{{ param_def.label }}</span>
                 </div>
             </div>
             {% endif %}
             {% endfor %}
         </div>
         {% else %}
-            <p class="empty-state">No parameters defined for this device's types.</p>
+        <p class="empty-state">No parameters configured</p>
+        {% endif %}
         {% endif %}
     </section>
+    {% endfor %}
 </div>
 
 <div class="page-actions">
@@ -106,5 +440,6 @@
 
 {% block scripts %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/devices.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard/optimization.css') }}">
 <script type="module" src="{{ url_for('static', filename='js/device-entities.js') }}"></script>
 {% endblock %}

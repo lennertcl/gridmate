@@ -5,6 +5,7 @@
 - Unless there's a good technical reason, all imports MUST be at the top of the file, not inside functions or classes 
 - Prefer .env and .env.local variables for configuration over constants in the code for development setup related stuff
 - ALWAYS run `./run-checks.sh` after making changes and address all reported issues before considering the task complete
+- ALWAYS USE GM CLI commands for testing and debugging any newly added features. 
 - Prefer asking the user using 'vscode_askQuestions' over making assumptions when requirements are unclear. 
 
 ### Architecture

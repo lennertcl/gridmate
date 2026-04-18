@@ -1,5 +1,5 @@
 import { get_ha_connection } from './ha-connection.js';
-import { subscribeEntities } from 'https://esm.sh/home-assistant-js-websocket@9.6.0';
+import { subscribeEntities, callService } from 'https://esm.sh/home-assistant-js-websocket@9.6.0';
 
 function getEntityDomain(entityId) {
     return entityId.split('.')[0];
@@ -84,15 +84,40 @@ function setAllEntitiesState(className, message) {
     });
 }
 
+function updateToggleElements(entityId, state) {
+    document.querySelectorAll(`[data-entity-toggle="${entityId}"]`).forEach(el => {
+        el.checked = state === 'on';
+    });
+}
+
 async function initDeviceEntities() {
     const entityElements = document.querySelectorAll('[data-entity-id]');
-    if (entityElements.length === 0) return;
+    const toggleElements = document.querySelectorAll('[data-entity-toggle]');
+    if (entityElements.length === 0 && toggleElements.length === 0) return;
 
     const trackedEntityIds = new Set();
     entityElements.forEach(el => trackedEntityIds.add(el.dataset.entityId));
+    toggleElements.forEach(el => trackedEntityIds.add(el.dataset.entityToggle));
+
+    document.querySelectorAll('.device-toggle-wrapper').forEach(wrapper => {
+        wrapper.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    });
 
     try {
         const connection = await get_ha_connection();
+
+        toggleElements.forEach(el => {
+            el.addEventListener('change', async () => {
+                const entityId = el.dataset.entityToggle;
+                try {
+                    await callService(connection, 'homeassistant', 'toggle', { entity_id: entityId });
+                } catch {
+                    el.checked = !el.checked;
+                }
+            });
+        });
 
         subscribeEntities(connection, (entities) => {
             for (const entityId of trackedEntityIds) {
@@ -102,6 +127,7 @@ async function initDeviceEntities() {
                         entities[entityId].state,
                         entities[entityId].attributes
                     );
+                    updateToggleElements(entityId, entities[entityId].state);
                 }
             }
         });

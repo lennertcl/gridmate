@@ -2,9 +2,15 @@
 
 ## Overview
 
-The devices dashboard provides an at-a-glance view of all registered devices in the energy management system. It shows device cards with type icons, parameter previews, and links to a detailed device view. The device detail page displays all configured parameters, type information (primary and secondary types), and navigation to the device edit form.
+The devices dashboard provides an at-a-glance view of all registered devices in the energy management system. Each device card displays type-specific sections organized by priority, with live Home Assistant state data for entity parameters. Automatable devices show a toggle switch in the card header for quick on/off control. The device detail page displays comprehensive information organized into per-type section cards.
 
-Parameters with `param_type: entity` display live Home Assistant state data fetched via WebSocket, with real-time updates. Non-entity parameters (float, int, string, bool) display their configured values directly. Entity IDs are only shown on the device detail page as a small reference — the raw ID is visible when editing the device in settings.
+Device cards show up to 3 type sections (configurable via `MAX_DEVICE_CARD_SECTIONS`), prioritized as follows:
+1. **Primary type** — always shown first (unless the primary type is `automatable_device`, which is handled as a toggle instead)
+2. **Additional types** — selected from the device's secondary types in priority order: Energy Reporting → Deferrable Load → Battery Device → Duration Reporting → Home Battery → EV → Charging Station → Heat Pump → Electric Heating → Water Heater → Washing Machine → Dryer → Dishwasher
+
+The priority order is defined in `DEVICE_TYPE_SECTION_PRIORITY` in `device_type.py`.
+
+Parameters with `param_type: entity` display live Home Assistant state data fetched via WebSocket, with real-time updates. Non-entity parameters (float, int, string, bool) display their configured values directly.
 
 ## Relevant Artefacts
 
@@ -12,26 +18,54 @@ Parameters with `param_type: entity` display live Home Assistant state data fetc
 - [device-detail.html](../../web/templates/dashboard/device-detail.html) — Individual device detail page
 - [dashboard.py](../../web/routes/dashboards/dashboard.py) — Dashboard routes
 - [devices.css](../../web/static/css/dashboard/devices.css) — Dashboard device styling
-- [device-entities.js](../../web/static/js/device-entities.js) — JS module for live HA entity state fetching and display
+- [device-entities.js](../../web/static/js/device-entities.js) — JS module for live HA entity state fetching, display and device toggling
 - [models.py](../../web/model/device/models.py) — Device and DeviceType models
+- [device_type.py](../../web/model/device/device_type.py) — DeviceType base class, section priority system, `get_device_sections()` helper
 - [data_connector.py](../../web/model/data/data_connector.py) — DeviceManager, DeviceTypeManager
+
+## Models
+
+### Section Priority System (`device_type.py`)
+
+The section priority system determines which device type sections are displayed on cards and detail pages:
+
+- `DEVICE_TYPE_SECTION_PRIORITY` — ordered list of type IDs defining display priority
+- `MAX_DEVICE_CARD_SECTIONS = 3` — configurable maximum number of sections shown on device cards
+- `get_device_sections(device, type_registry, max_sections)` — returns an ordered list of `(type_id, DeviceType)` tuples for a device:
+  - Primary type is always first (excluded if `automatable_device`)
+  - Additional sections come from the priority list
+  - `automatable_device` is excluded from sections (handled as a toggle)
+  - Types not in the priority list are appended after prioritized types
+  - Pass `max_sections=None` for unlimited sections (used on detail pages)
+
+### Automatable Device
+
+The `automatable_device` type receives special treatment:
+- Not shown as a section — instead rendered as a toggle switch
+- The toggle controls the device's `control_entity` via HA WebSocket `homeassistant.toggle` service
+- Toggle state updates in real-time via entity subscription
 
 ## Routes
 
 | Route | Method | Description |
 |---|---|---|
 | `/dashboard/devices` | GET | Dashboard overview showing all devices as cards. Supports optional `?type=<type_id>` query parameter to filter devices by type. |
-| `/dashboard/device/<device_id>` | GET | Detail view for a single device with full parameter list |
-| `/dashboard/device/<device_id>/battery` | GET | Home battery dashboard (only for devices with `home_battery` type) |
+| `/dashboard/device/<device_id>` | GET | Detail view for a single device with per-type section cards |
+| `/dashboard/device/<device_id>/battery` | GET | Home battery dashboard (only for devices with `home_battery` as primary type) |
 | `/api/ha/config` | GET | Returns HA connection config for frontend WebSocket auth |
 
 ### Dashboard Route
 
-The `/dashboard/devices` route loads all devices via `DeviceManager` and the full type registry via `DeviceTypeManager`. It passes both to the template so each device card can display the correct icon and type name. An optional `?type=<type_id>` query parameter filters devices to only those with the given type (primary or secondary). When a filter is active, the page title and subtitle reflect the filter and a link to clear it is shown.
+The `/dashboard/devices` route loads all devices via `DeviceManager` and the full type registry via `DeviceTypeManager`. For each device, it pre-computes:
+- `is_automatable` — whether the device has the `automatable_device` type
+- `control_entity` — the control entity ID (if automatable)
+- `sections` — ordered type sections via `get_device_sections()`
+
+This `device_info` dict is passed to the template keyed by device ID.
 
 ### Device Detail Route
 
-The `/dashboard/device/<device_id>` route loads a single device and its primary device type. It computes the full parameter list from all assigned types (primary + secondary) via `device.get_all_parameters(type_registry)` and passes this to the template along with the device's configured values.
+The `/dashboard/device/<device_id>` route checks if the device's **primary type** has a custom dashboard template (e.g., `home_battery` → `home-battery.html`). If so, it renders that template. Otherwise, it renders the default sectioned detail page with all type sections (no section limit) and automatable toggle info. For deferrable loads, it also fetches schedule data from the `OptimizationManager`: today's weekly schedule entry (cycle count, time window) and plan schedule blocks from the latest optimization result.
 
 ## Frontend
 
@@ -39,11 +73,13 @@ The `/dashboard/device/<device_id>` route loads a single device and its primary 
 
 An ES module that connects to Home Assistant via WebSocket to fetch and display live entity states on device pages. It:
 
-1. Scans the DOM for elements with `data-entity-id` attributes (rendered by templates for entity-type parameters)
+1. Scans the DOM for elements with `data-entity-id` attributes (entity state display) and `data-entity-toggle` attributes (toggle switches)
 2. Fetches HA connection config from `/api/ha/config`
 3. Establishes a WebSocket connection using `home-assistant-js-websocket`
 4. Subscribes to entity state updates via `subscribeEntities`
 5. Updates matching DOM elements in real-time whenever entity state changes
+6. Handles toggle switch click events by calling `homeassistant.toggle` via `callService`
+7. Prevents toggle clicks from triggering card navigation (via `.device-toggle-wrapper` click interception)
 
 **Entity domain handling:**
 
@@ -67,35 +103,55 @@ When HA is not connected or has no token configured, all entity elements show an
 
 Displays a grid of device cards. The page header includes an "Add Device" button linking to the settings add-device form. Each card shows:
 - Device type icon (from primary type, FontAwesome)
-- Device name
-- Primary type name as a badge
-- Secondary type count (if any)
-- Up to 3 parameter previews: entity-type params show live HA state, non-entity params show configured values
-- Click-through link to the device detail page
+- Device name and primary type name
+- Toggle switch (top right, if device has `automatable_device` type) — controls the device's `control_entity`
+- Up to 3 type sections (configurable), each showing:
+  - Section header with type icon and name
+  - Up to 2 configured parameter values per section (entity params show live HA state)
 
 When no devices are configured, an empty state message is shown with a link to the device settings page.
 
 ### Device Detail (`device-detail.html`)
 
-Shows comprehensive device information:
-- Header with icon, name, and primary type badge
-- **Primary Type**: Displayed prominently with icon and name
-- **Secondary Types**: List of additional types with their icons, shown only if secondary types exist
-- **Battery Dashboard Link**: If the device has the `home_battery` type (primary or secondary), a card with a link to the dedicated Home Battery Dashboard is shown. See [HOME_BATTERY.md](HOME_BATTERY.md) for details.
-- **Parameters Table**: A two-column fixed-width table (Parameter, Value) showing all assigned parameters. Uses the `.params-table` modifier on `.device-table` to override the default 5-column grid. Entity-type parameters show live HA state with a small entity ID reference below. Non-entity parameters show their configured value directly.
+Shows a device dashboard organized by type sections with custom metric-tile layouts:
+- **Header**: Device icon, name, primary type label, and toggle switch (if automatable) aligned side-by-side via flex layout
+- **Schedule card** (deferrable loads only): Shows today's planned cycles from the optimization weekly schedule, schedule blocks with start/end times and power, and a weekly overview with badge indicators per day
+- **Type Section cards**: One card per device type (all types, no limit), each with a custom metric-tile layout per type:
+  - `energy_reporting_device` — live power + total energy sensors
+  - `battery_device` — battery level, capacity, charge/discharge power
+  - `deferrable_load` — nominal power, duration, operating window, priority
+  - `duration_reporting_device` — remaining time sensor
+  - `home_battery` — max charge/discharge power, battery mode, link to battery dashboard
+  - `electric_vehicle` — estimated range, charging state
+  - `charging_station` — max charge rate, session energy
+  - `heat_pump` — temperature, COP
+  - `electric_heating` — temperature, thermostat
+  - `water_heater` — water temperature
+  - Unknown types fall back to generic metric tiles from custom parameter definitions
 - Action buttons: Edit device (links to settings), back to dashboard
+
+Custom dashboards: If the device's primary type has a registered custom dashboard template (e.g., `home_battery`), that template is used instead of the default sectioned layout.
 
 ### Styling (`devices.css`)
 
 - `.device-dashboard-card` — Card layout with hover effect and icon/info sections
-- `.device-dashboard-secondary` — Secondary type count display on device cards
-- `.detail-grid` / `.detail-row` — Detail page grid layout for info rows
-- `.type-badge-list` / `.type-badge-item` — Styled list for primary and secondary types on detail page
+- `.device-toggle-wrapper` — Positions the automatable toggle at the top right of the card header
+- `.device-dashboard-sections` — Container for type sections within a card
+- `.device-type-section` — Individual type section with header and params
+- `.device-section-header` — Uppercase type name with icon, separated by border
+- `.device-detail-header` — Flex layout aligning device name and toggle side-by-side
+- `.device-detail-title` — Title block within the detail header
+- `.device-detail-toggle` — Toggle container within the detail header with flex-shrink
+- `.section-metrics` — Flex wrap container for metric tiles within a type section
+- `.metric-tile` — Individual metric display with icon, value, and label (min-width 160px, max-width 280px)
+- `.metric-tile-highlight` — Highlighted metric variant with green left border
+- `.metric-icon` / `.metric-content` / `.metric-value` / `.metric-label` — Metric tile sub-elements
+- `.section-link` — Container for links within type sections (e.g., battery dashboard link)
+- `.device-weekly-overview` — Weekly schedule overview container with border-top separator
+- `.weekly-badges` — Flex row of day badges for the weekly schedule
+- `.weekly-badge-item` / `.weekly-badge-day` — Individual badge items with day abbreviation and cycle count
 - `.page-actions` — Action button container
 - `.entity-state` — Flex container for entity indicator + value
 - `.entity-state-compact` — Compact variant for device card previews
 - `.entity-state-indicator` / `.indicator-active` / `.indicator-unavailable` / `.indicator-error` — Status dot with colors
 - `.entity-state-value` / `.entity-sensor` / `.entity-on` / `.entity-off` / `.entity-unavailable` — Value text with state-dependent coloring
-- `.entity-id-ref` — Small monospace entity ID reference shown on detail page
-- `.params-table` — Overrides `.device-table` grid to a 2-column layout for the device detail parameters table
-- `.col-param-name` / `.col-param-value` — Fixed-width columns for the parameters table

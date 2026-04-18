@@ -16,8 +16,10 @@ from web.model.data.data_connector import (
     PriceProviderManager,
     SolarManager,
 )
+from web.model.device.device_type import get_device_sections
 from web.model.energy.cost_calculator import CostCalculationService
 from web.model.energy.models import EnergyPeriodData, VariableComponent
+from web.model.optimization.optimization_manager import OptimizationManager
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,7 @@ device_manager = DeviceManager(data_connector)
 device_type_manager = DeviceTypeManager(data_connector)
 solar_manager = SolarManager(data_connector)
 price_provider_manager = PriceProviderManager(data_connector)
+optimization_manager = OptimizationManager(data_connector)
 
 
 @dashboard_bp.route('/dashboard/live')
@@ -191,12 +194,23 @@ def devices():
         filter_type_name = filter_type_name.name
     else:
         filter_type_name = None
+
+    device_info = {}
+    for device in all_devices:
+        is_automatable = 'automatable_device' in device.get_all_type_ids()
+        device_info[device.device_id] = {
+            'is_automatable': is_automatable,
+            'control_entity': device.get_param('control_entity', '') if is_automatable else '',
+            'sections': get_device_sections(device, type_registry),
+        }
+
     return render_template(
         'dashboard/devices.html',
         devices=all_devices,
         type_registry=type_registry,
         filter_type=filter_type,
         filter_type_name=filter_type_name,
+        device_info=device_info,
     )
 
 
@@ -208,26 +222,54 @@ def device_detail(device_id):
 
     type_registry = device_type_manager.get_registry()
 
-    for type_id in device.get_all_type_ids():
-        custom_template = CUSTOM_DASHBOARD_TEMPLATES.get(type_id)
-        if custom_template:
-            all_type_params = device.get_all_parameters(type_registry)
-            default_params = {k: '' for k in all_type_params}
-            default_params.update(device.custom_parameters)
-            return render_template(
-                custom_template,
-                device=device,
-                type_registry=type_registry,
-                **default_params,
-            )
+    custom_template = CUSTOM_DASHBOARD_TEMPLATES.get(device.primary_type)
+    if custom_template:
+        all_type_params = device.get_all_parameters(type_registry)
+        default_params = {k: '' for k in all_type_params}
+        default_params.update(device.custom_parameters)
+        return render_template(
+            custom_template,
+            device=device,
+            type_registry=type_registry,
+            **default_params,
+        )
 
     primary_type = type_registry.get(device.primary_type)
-    all_params = device.get_all_parameters(type_registry)
+    sections = get_device_sections(device, type_registry, max_sections=None)
+    is_automatable = 'automatable_device' in device.get_all_type_ids()
+    control_entity = device.get_param('control_entity', '') if is_automatable else ''
+    is_deferrable = 'deferrable_load' in device.get_all_type_ids()
+
+    schedule = None
+    today_entry = None
+    weekly_schedule_data = None
+    if is_deferrable:
+        opt_config = optimization_manager.get_config()
+        opt_result = optimization_manager.get_latest_result()
+        today_entry = opt_config.weekly_schedule.get_device_entry_for_today(device.device_id)
+        if opt_result and device.device_id in opt_result.device_schedules:
+            schedule = opt_result.device_schedules[device.device_id]
+        weekly_schedule_data = {}
+        for day in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']:
+            entries = opt_config.weekly_schedule.get_day(day)
+            for e in entries:
+                if e.device_id == device.device_id:
+                    weekly_schedule_data[day] = e.num_cycles
+                    break
+            if day not in weekly_schedule_data:
+                weekly_schedule_data[day] = 0
+
     return render_template(
         'dashboard/device-detail.html',
         device=device,
         primary_type=primary_type,
-        all_params=all_params,
+        sections=sections,
+        is_automatable=is_automatable,
+        control_entity=control_entity,
+        is_deferrable=is_deferrable,
+        schedule=schedule,
+        today_entry=today_entry,
+        weekly_schedule_data=weekly_schedule_data,
         type_registry=type_registry,
     )
 
