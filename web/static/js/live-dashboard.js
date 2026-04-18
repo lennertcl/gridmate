@@ -508,70 +508,21 @@ async function fetch_and_render_solar_history(connection) {
         }
     }
 
-    const est_entity_id = sensors.estimated_actual_production;
-    const offset_entity_id = sensors.estimated_actual_production_offset_day;
-
-    if (est_entity_id) {
-        try {
-            const est_end = end_of_day > now ? now : end_of_day;
-            const est_history = await connection.sendMessagePromise({
-                type: 'history/history_during_period',
-                start_time: start_of_day.toISOString(),
-                end_time: est_end.toISOString(),
-                entity_ids: [est_entity_id],
-                minimal_response: true,
-                no_attributes: true
-            });
-
-            if (est_history && est_history[est_entity_id]) {
-                est_history[est_entity_id].forEach(item => {
-                    const val = parseFloat(item.s);
-                    if (!isNaN(val)) {
-                        solar_production_chart.data.datasets[1].data.push({
-                            x: new Date(item.lu * 1000),
-                            y: val
-                        });
-                    }
-                });
-            }
-        } catch (error) {
-            console.error('Error fetching forecast history:', error);
-        }
-    }
-
-    if (offset_entity_id) {
-        const offset_start = new Date(start_of_day.getTime() - FULL_DAY_MS);
-        const offset_end = new Date(Math.min(end_of_day.getTime() - FULL_DAY_MS, now.getTime()));
-
-        if (offset_end > offset_start) {
-            try {
-                const offset_history = await connection.sendMessagePromise({
-                    type: 'history/history_during_period',
-                    start_time: offset_start.toISOString(),
-                    end_time: offset_end.toISOString(),
-                    entity_ids: [offset_entity_id],
-                    minimal_response: true,
-                    no_attributes: true
-                });
-
-                if (offset_history && offset_history[offset_entity_id]) {
-                    offset_history[offset_entity_id].forEach(item => {
-                        const val = parseFloat(item.s);
-                        if (!isNaN(val)) {
-                            const shifted_ts = new Date(item.lu * 1000 + FULL_DAY_MS);
-                            if (shifted_ts > now) {
-                                solar_production_chart.data.datasets[1].data.push({
-                                    x: shifted_ts,
-                                    y: val
-                                });
-                            }
-                        }
+    try {
+        const forecast_resp = await fetch('/api/solar/forecast');
+        if (forecast_resp.ok) {
+            const forecast_data = await forecast_resp.json();
+            if (forecast_data.forecast) {
+                forecast_data.forecast.forEach(point => {
+                    solar_production_chart.data.datasets[1].data.push({
+                        x: new Date(point.t),
+                        y: point.y
                     });
-                }
-            } catch (error) {
-                console.error('Error fetching offset forecast history:', error);
+                });
             }
         }
+    } catch (error) {
+        console.error('Error fetching forecast:', error);
     }
 
     solar_production_chart.data.datasets[1].data.sort((a, b) => a.x - b.x);

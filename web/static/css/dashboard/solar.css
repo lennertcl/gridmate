@@ -57,7 +57,7 @@
 
 .solar-hero-stats {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 1rem;
     flex: 1;
     padding: 1rem;
@@ -253,7 +253,7 @@
     }
 
     .solar-hero-stats {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr 1fr;
         padding: 0.5rem;
     }
 

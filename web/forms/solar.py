@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField
+from wtforms import SelectField, StringField, SubmitField
 from wtforms.validators import Length, Optional
 
 
@@ -10,26 +10,19 @@ class SolarConfigForm(FlaskForm):
         'Lifetime Energy Production (kWh)', validators=[Optional(), Length(max=100)]
     )
 
-    estimated_actual_production = StringField(
-        'Estimated Actual Production (kW)', validators=[Optional(), Length(max=100)]
+    forecast_provider_type = SelectField(
+        'Solar Forecast Provider',
+        choices=[
+            ('', 'None'),
+            ('forecast_solar', 'Forecast.Solar'),
+            ('solcast', 'Solcast'),
+            ('naive', 'Naive (yesterday as forecast)'),
+        ],
+        validators=[Optional()],
     )
-    estimated_energy_production_remaining_today = StringField(
-        'Estimated Remaining Today (kWh)', validators=[Optional(), Length(max=100)]
-    )
-    estimated_energy_production_today = StringField(
-        'Estimated Production Today (kWh)', validators=[Optional(), Length(max=100)]
-    )
-    estimated_energy_production_hour = StringField(
-        'Estimated Production This Hour (kWh)', validators=[Optional(), Length(max=100)]
-    )
-    estimated_actual_production_offset_day = StringField(
-        'Estimated Production +24h (kW)', validators=[Optional(), Length(max=100)]
-    )
-    estimated_energy_production_offset_day = StringField(
-        'Estimated Energy +24h (kWh)', validators=[Optional(), Length(max=100)]
-    )
-    estimated_energy_production_offset_hour = StringField(
-        'Estimated Energy Next Hour (kWh)', validators=[Optional(), Length(max=100)]
-    )
+
+    forecast_solar_sensor = StringField('Forecast.Solar Offset Sensor', validators=[Optional(), Length(max=100)])
+    solcast_forecast_entity = StringField('Solcast Forecast Entity', validators=[Optional(), Length(max=100)])
+    naive_production_sensor = StringField('Production Sensor (for Naive)', validators=[Optional(), Length(max=100)])
 
     submit = SubmitField('Save Solar Configuration')

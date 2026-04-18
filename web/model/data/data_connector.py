@@ -528,11 +528,9 @@ class SolarManager:
         solar.sensors = SolarSensors.from_dict(sensors_dict)
         self.connector.set_solar(solar)
 
-    def set_estimation_sensors(self, estimation_dict: Dict) -> None:
-        from web.model.solar.models import SolarEstimationSensors
-
+    def set_forecast_provider_config(self, config: Dict) -> None:
         solar = self.get_config()
-        solar.estimation_sensors = SolarEstimationSensors.from_dict(estimation_dict)
+        solar.forecast_provider_config = config
         self.connector.set_solar(solar)
 
     def get_all_sensor_ids(self) -> list:
@@ -542,13 +540,6 @@ class SolarManager:
             solar.sensors.actual_production,
             solar.sensors.energy_production_today,
             solar.sensors.energy_production_lifetime,
-            solar.estimation_sensors.estimated_actual_production,
-            solar.estimation_sensors.estimated_energy_production_remaining_today,
-            solar.estimation_sensors.estimated_energy_production_today,
-            solar.estimation_sensors.estimated_energy_production_hour,
-            solar.estimation_sensors.estimated_actual_production_offset_day,
-            solar.estimation_sensors.estimated_energy_production_offset_day,
-            solar.estimation_sensors.estimated_energy_production_offset_hour,
         ]:
             if val:
                 sensor_ids.append(val)

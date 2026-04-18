@@ -30,55 +30,9 @@ class SolarSensors:
 
 
 @dataclass
-class SolarEstimationSensors:
-    estimated_actual_production: str = ''
-    estimated_energy_production_remaining_today: str = ''
-    estimated_energy_production_today: str = ''
-    estimated_energy_production_hour: str = ''
-    estimated_actual_production_offset_day: str = ''
-    estimated_energy_production_offset_day: str = ''
-    estimated_energy_production_offset_hour: str = ''
-
-    def to_dict(self) -> Dict:
-        return {
-            'estimated_actual_production': self.estimated_actual_production,
-            'estimated_energy_production_remaining_today': self.estimated_energy_production_remaining_today,
-            'estimated_energy_production_today': self.estimated_energy_production_today,
-            'estimated_energy_production_hour': self.estimated_energy_production_hour,
-            'estimated_actual_production_offset_day': self.estimated_actual_production_offset_day,
-            'estimated_energy_production_offset_day': self.estimated_energy_production_offset_day,
-            'estimated_energy_production_offset_hour': self.estimated_energy_production_offset_hour,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict) -> 'SolarEstimationSensors':
-        return cls(
-            estimated_actual_production=data.get('estimated_actual_production', ''),
-            estimated_energy_production_remaining_today=data.get('estimated_energy_production_remaining_today', ''),
-            estimated_energy_production_today=data.get('estimated_energy_production_today', ''),
-            estimated_energy_production_hour=data.get('estimated_energy_production_hour', ''),
-            estimated_actual_production_offset_day=data.get('estimated_actual_production_offset_day', ''),
-            estimated_energy_production_offset_day=data.get('estimated_energy_production_offset_day', ''),
-            estimated_energy_production_offset_hour=data.get('estimated_energy_production_offset_hour', ''),
-        )
-
-    @property
-    def has_any(self) -> bool:
-        return bool(
-            self.estimated_actual_production
-            or self.estimated_energy_production_remaining_today
-            or self.estimated_energy_production_today
-            or self.estimated_energy_production_hour
-            or self.estimated_actual_production_offset_day
-            or self.estimated_energy_production_offset_day
-            or self.estimated_energy_production_offset_hour
-        )
-
-
-@dataclass
 class Solar:
     sensors: SolarSensors = field(default_factory=SolarSensors)
-    estimation_sensors: SolarEstimationSensors = field(default_factory=SolarEstimationSensors)
+    forecast_provider_config: dict = field(default_factory=dict)
     last_updated: datetime = field(default_factory=datetime.now)
 
     @property
@@ -88,7 +42,7 @@ class Solar:
     def to_dict(self) -> Dict:
         return {
             'sensors': self.sensors.to_dict(),
-            'estimation_sensors': self.estimation_sensors.to_dict(),
+            'forecast_provider': self.forecast_provider_config,
             'last_updated': self.last_updated.isoformat()
             if isinstance(self.last_updated, datetime)
             else self.last_updated,
@@ -107,10 +61,21 @@ class Solar:
             sensors_data = {
                 'actual_production': data.get('production_entity', ''),
             }
-        estimation_data = data.get('estimation_sensors', {})
+
+        forecast_provider_config = data.get('forecast_provider', {})
+
+        # Migration: convert old estimation_sensors to forecast_provider_config
+        if not forecast_provider_config:
+            estimation_data = data.get('estimation_sensors', {})
+            offset_sensor = estimation_data.get('estimated_actual_production_offset_day', '')
+            if offset_sensor:
+                forecast_provider_config = {
+                    'type': 'forecast_solar',
+                    'config': {'sensor_entity': offset_sensor},
+                }
 
         return cls(
             sensors=SolarSensors.from_dict(sensors_data),
-            estimation_sensors=SolarEstimationSensors.from_dict(estimation_data),
+            forecast_provider_config=forecast_provider_config,
             last_updated=last_updated,
         )

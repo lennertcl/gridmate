@@ -55,13 +55,6 @@ def live():
             'actual_production': solar.sensors.actual_production,
             'energy_production_today': solar.sensors.energy_production_today,
             'energy_production_lifetime': solar.sensors.energy_production_lifetime,
-            'estimated_actual_production': solar.estimation_sensors.estimated_actual_production,
-            'estimated_energy_production_remaining_today': solar.estimation_sensors.estimated_energy_production_remaining_today,
-            'estimated_energy_production_today': solar.estimation_sensors.estimated_energy_production_today,
-            'estimated_energy_production_hour': solar.estimation_sensors.estimated_energy_production_hour,
-            'estimated_actual_production_offset_day': solar.estimation_sensors.estimated_actual_production_offset_day,
-            'estimated_energy_production_offset_day': solar.estimation_sensors.estimated_energy_production_offset_day,
-            'estimated_energy_production_offset_hour': solar.estimation_sensors.estimated_energy_production_offset_hour,
             'actual_consumption': energy_feed.actual_consumption,
             'actual_injection': energy_feed.actual_injection,
         }
@@ -157,28 +150,74 @@ def energy_prices():
 @dashboard_bp.route('/dashboard/solar')
 def solar():
     solar_config = solar_manager.get_config()
-    energy_feed = data_connector.get_energy_feed()
 
     solar_sensors = {
         'actual_production': solar_config.sensors.actual_production,
         'energy_production_today': solar_config.sensors.energy_production_today,
         'energy_production_lifetime': solar_config.sensors.energy_production_lifetime,
-        'estimated_actual_production': solar_config.estimation_sensors.estimated_actual_production,
-        'estimated_energy_production_remaining_today': solar_config.estimation_sensors.estimated_energy_production_remaining_today,
-        'estimated_energy_production_today': solar_config.estimation_sensors.estimated_energy_production_today,
-        'estimated_energy_production_hour': solar_config.estimation_sensors.estimated_energy_production_hour,
-        'estimated_actual_production_offset_day': solar_config.estimation_sensors.estimated_actual_production_offset_day,
-        'estimated_energy_production_offset_day': solar_config.estimation_sensors.estimated_energy_production_offset_day,
-        'estimated_energy_production_offset_hour': solar_config.estimation_sensors.estimated_energy_production_offset_hour,
-        'actual_consumption': energy_feed.actual_consumption,
-        'actual_injection': energy_feed.actual_injection,
     }
+
+    has_forecast_provider = bool(solar_config.forecast_provider_config.get('type'))
 
     return render_template(
         'dashboard/solar.html',
         solar_sensors=solar_sensors,
         is_configured=solar_config.is_configured,
+        has_forecast_provider=has_forecast_provider,
     )
+
+
+@dashboard_bp.route('/api/solar/forecast')
+def solar_forecast_api():
+    """Return solar forecast data from the configured provider."""
+    from web.model.data.ha_connector import HAConnector
+    from web.model.solar.forecast_provider import SolarForecastProvider
+
+    solar_config = solar_manager.get_config()
+    provider = SolarForecastProvider.from_dict(solar_config.forecast_provider_config, HAConnector())
+    if not provider:
+        return jsonify({'forecast': [], 'stats': {}})
+
+    start_param = request.args.get('start')
+    end_param = request.args.get('end')
+
+    now = datetime.now()
+    if start_param:
+        start = datetime.fromisoformat(start_param)
+        if start.tzinfo is not None:
+            start = start.astimezone(tz=None).replace(tzinfo=None)
+    else:
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    if end_param:
+        end = datetime.fromisoformat(end_param)
+        if end.tzinfo is not None:
+            end = end.astimezone(tz=None).replace(tzinfo=None)
+    else:
+        end = start.replace(hour=23, minute=59, second=59)
+
+    data_points = provider.get_power_forecast_between(start, end)
+    forecast = [{'t': ts.isoformat(), 'y': round(val / 1000.0, 3)} for ts, val in data_points]
+
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start.replace(hour=23, minute=59, second=59)
+    hour_start = now.replace(minute=0, second=0, microsecond=0)
+    hour_end = hour_start + timedelta(hours=1)
+    next_hour_start = hour_end
+    next_hour_end = next_hour_start + timedelta(hours=1)
+    tomorrow_start = today_start + timedelta(days=1)
+    tomorrow_end = today_end + timedelta(days=1)
+
+    def to_kwh(wh):
+        return round(wh / 1000.0, 2) if wh else None
+
+    stats = {
+        'estimated_this_hour_kwh': to_kwh(provider.get_energy_forecast_between(hour_start, hour_end)),
+        'estimated_today_kwh': to_kwh(provider.get_energy_forecast_between(today_start, today_end)),
+        'estimated_next_hour_kwh': to_kwh(provider.get_energy_forecast_between(next_hour_start, next_hour_end)),
+        'estimated_tomorrow_kwh': to_kwh(provider.get_energy_forecast_between(tomorrow_start, tomorrow_end)),
+    }
+
+    return jsonify({'forecast': forecast, 'stats': stats})
 
 
 @dashboard_bp.route('/dashboard/devices')

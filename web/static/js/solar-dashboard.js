@@ -84,9 +84,8 @@ async function reload_solar_history() {
     }
     if (ha_connection) {
         await fetch_production_history(ha_connection);
-        await fetch_forecast_history(ha_connection);
     }
-
+    await fetch_forecast_history();
 }
 
 function update_dashboard(entities) {
@@ -94,10 +93,6 @@ function update_dashboard(entities) {
 
     var actual_prod = get_entity_value(entities, sensors.actual_production);
     var energy_today = get_entity_value(entities, sensors.energy_production_today);
-    var est_today = get_entity_value(entities, sensors.estimated_energy_production_today);
-    var est_hour = get_entity_value(entities, sensors.estimated_energy_production_hour);
-    var est_next_hour = get_entity_value(entities, sensors.estimated_energy_production_offset_hour);
-    var est_tomorrow_energy = get_entity_value(entities, sensors.estimated_energy_production_offset_day);
 
     var now = new Date();
     var current_hour_start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours());
@@ -119,10 +114,6 @@ function update_dashboard(entities) {
     update_text('solar-current-power', format_power(actual_prod));
     update_text('solar-produced-hour', format_energy(produced_this_hour_kwh > 0 ? produced_this_hour_kwh : null));
     update_text('solar-today', energy_today !== null ? format_energy(energy_today) : '--');
-    update_text('solar-estimated-today', est_today !== null ? format_energy(est_today) : '--');
-    update_text('solar-est-hour', est_hour !== null ? format_energy(est_hour) : '--');
-    update_text('solar-est-next-hour', est_next_hour !== null ? format_energy(est_next_hour) : '--');
-    update_text('solar-est-tomorrow-energy', est_tomorrow_energy !== null ? format_energy(est_tomorrow_energy) : '--');
 
     if (typeof update_solar_production_chart_realtime === 'function') {
         update_solar_production_chart_realtime(now, actual_prod);
@@ -190,78 +181,37 @@ async function fetch_production_history(connection) {
     }
 }
 
-async function fetch_forecast_history(connection) {
-    var sensors = window.SOLAR_CONFIG.sensors;
-    var est_entity_id = sensors.estimated_actual_production;
-    var offset_entity_id = sensors.estimated_actual_production_offset_day;
+async function fetch_forecast_history() {
+    if (!window.SOLAR_CONFIG.has_forecast_provider) return;
+
     var start_time = get_solar_start_time();
     var end_time = get_solar_end_time();
-    var now = new Date();
-    var twenty_four_hours = 24 * 60 * 60 * 1000;
 
-    if (est_entity_id) {
-        var est_end = end_time > now ? now : end_time;
-        try {
-            var est_history = await connection.sendMessagePromise({
-                type: 'history/history_during_period',
-                start_time: start_time.toISOString(),
-                end_time: est_end.toISOString(),
-                entity_ids: [est_entity_id],
-                minimal_response: true,
-                no_attributes: true
+    try {
+        var url = '/api/solar/forecast?start=' + encodeURIComponent(start_time.toISOString()) +
+                  '&end=' + encodeURIComponent(end_time.toISOString());
+        var response = await fetch(url);
+        if (!response.ok) return;
+
+        var data = await response.json();
+
+        if (data.forecast && typeof solar_production_chart !== 'undefined' && solar_production_chart) {
+            data.forecast.forEach(function(point) {
+                var ts = new Date(point.t);
+                solar_production_chart.data.datasets[1].data.push({ x: ts, y: point.y });
             });
-
-            if (est_history && est_history[est_entity_id]) {
-                est_history[est_entity_id].forEach(function(item) {
-                    var val = parseFloat(item.s);
-                    if (!isNaN(val)) {
-                        var ts = new Date(item.lu * 1000);
-                        if (typeof solar_production_chart !== 'undefined' && solar_production_chart) {
-                            solar_production_chart.data.datasets[1].data.push({ x: ts, y: val });
-                        }
-                    }
-                });
-            }
-        } catch (error) {
-            console.error('Error fetching forecast history:', error);
+            solar_production_chart.data.datasets[1].data.sort(function(a, b) { return a.x - b.x; });
+            solar_production_chart.update('none');
         }
-    }
 
-    if (offset_entity_id) {
-        var offset_start = new Date(start_time.getTime() - twenty_four_hours);
-        var offset_end = new Date(Math.min(end_time.getTime() - twenty_four_hours, now.getTime()));
-
-        if (offset_end > offset_start) {
-            try {
-                var offset_history = await connection.sendMessagePromise({
-                    type: 'history/history_during_period',
-                    start_time: offset_start.toISOString(),
-                    end_time: offset_end.toISOString(),
-                    entity_ids: [offset_entity_id],
-                    minimal_response: true,
-                    no_attributes: true
-                });
-
-                if (offset_history && offset_history[offset_entity_id]) {
-                    offset_history[offset_entity_id].forEach(function(item) {
-                        var val = parseFloat(item.s);
-                        if (!isNaN(val)) {
-                            var shifted_ts = new Date(item.lu * 1000 + twenty_four_hours);
-                            if (shifted_ts > now && typeof solar_production_chart !== 'undefined' && solar_production_chart) {
-                                solar_production_chart.data.datasets[1].data.push({ x: shifted_ts, y: val });
-                            }
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error('Error fetching offset forecast history:', error);
-            }
+        if (data.stats) {
+            update_text('solar-estimated-hour', format_energy(data.stats.estimated_this_hour_kwh));
+            update_text('solar-estimated-today', format_energy(data.stats.estimated_today_kwh));
+            update_text('solar-estimated-next-hour', format_energy(data.stats.estimated_next_hour_kwh));
+            update_text('solar-estimated-tomorrow', format_energy(data.stats.estimated_tomorrow_kwh));
         }
-    }
-
-    if (typeof solar_production_chart !== 'undefined' && solar_production_chart) {
-        solar_production_chart.data.datasets[1].data.sort(function(a, b) { return a.x - b.x; });
-        solar_production_chart.update('none');
+    } catch (error) {
+        console.error('Error fetching forecast:', error);
     }
 }
 
@@ -272,11 +222,12 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     init_solar_range_controls();
 
+    await fetch_forecast_history();
+
     try {
         ha_connection = await get_ha_connection();
 
         await fetch_production_history(ha_connection);
-        await fetch_forecast_history(ha_connection);
 
         subscribeEntities(ha_connection, function(entities) {
             update_dashboard(entities);

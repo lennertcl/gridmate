@@ -9,7 +9,6 @@ from web.model.optimization.models import (
     ScheduleEntry,
     TimeseriesPoint,
 )
-from web.model.optimization.solar_forecast import SolarForecastService
 
 __all__ = [
     'BatteryOptimizationConfig',
@@ -21,5 +20,4 @@ __all__ = [
     'TimeseriesPoint',
     'DeviceSchedule',
     'ScheduleEntry',
-    'SolarForecastService',
 ]

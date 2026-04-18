@@ -50,14 +50,14 @@
                     </div>
                 </div>
                 <div class="solar-stat">
-                    <i class="fas fa-clock"></i>
+                    <i class="fas fa-chart-line"></i>
                     <div class="solar-stat-content">
-                        <span class="solar-stat-value" id="solar-est-hour">--</span>
+                        <span class="solar-stat-value" id="solar-estimated-hour">--</span>
                         <span class="solar-stat-label">Estimated This Hour</span>
                     </div>
                 </div>
                 <div class="solar-stat">
-                    <i class="fas fa-chart-line"></i>
+                    <i class="fas fa-calendar-day"></i>
                     <div class="solar-stat-content">
                         <span class="solar-stat-value" id="solar-estimated-today">--</span>
                         <span class="solar-stat-label">Estimated Today</span>
@@ -66,14 +66,14 @@
                 <div class="solar-stat">
                     <i class="fas fa-forward"></i>
                     <div class="solar-stat-content">
-                        <span class="solar-stat-value" id="solar-est-next-hour">--</span>
+                        <span class="solar-stat-value" id="solar-estimated-next-hour">--</span>
                         <span class="solar-stat-label">Estimated Next Hour</span>
                     </div>
                 </div>
                 <div class="solar-stat">
-                    <i class="fas fa-calendar-day"></i>
+                    <i class="fas fa-cloud-sun"></i>
                     <div class="solar-stat-content">
-                        <span class="solar-stat-value" id="solar-est-tomorrow-energy">--</span>
+                        <span class="solar-stat-value" id="solar-estimated-tomorrow">--</span>
                         <span class="solar-stat-label">Estimated Tomorrow</span>
                     </div>
                 </div>
@@ -119,17 +119,9 @@
         sensors: {
             actual_production: "{{ solar_sensors.actual_production }}",
             energy_production_today: "{{ solar_sensors.energy_production_today }}",
-            energy_production_lifetime: "{{ solar_sensors.energy_production_lifetime }}",
-            estimated_actual_production: "{{ solar_sensors.estimated_actual_production }}",
-            estimated_energy_production_remaining_today: "{{ solar_sensors.estimated_energy_production_remaining_today }}",
-            estimated_energy_production_today: "{{ solar_sensors.estimated_energy_production_today }}",
-            estimated_energy_production_hour: "{{ solar_sensors.estimated_energy_production_hour }}",
-            estimated_actual_production_offset_day: "{{ solar_sensors.estimated_actual_production_offset_day }}",
-            estimated_energy_production_offset_day: "{{ solar_sensors.estimated_energy_production_offset_day }}",
-            estimated_energy_production_offset_hour: "{{ solar_sensors.estimated_energy_production_offset_hour }}",
-            actual_consumption: "{{ solar_sensors.actual_consumption }}",
-            actual_injection: "{{ solar_sensors.actual_injection }}"
-        }
+            energy_production_lifetime: "{{ solar_sensors.energy_production_lifetime }}"
+        },
+        has_forecast_provider: {{ 'true' if has_forecast_provider else 'false' }}
     };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>

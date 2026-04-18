@@ -173,10 +173,9 @@ class EmhassConnector(OptimizerConnector):
         self, config: OptimizationConfig, optimization_type: str, time_step: int, horizon_hours: float
     ) -> Dict:
         from web.model.optimization.cost_forecast import CostForecastService
-        from web.model.optimization.solar_forecast import SolarForecastService
+        from web.model.solar.forecast_provider import SolarForecastProvider
 
         cost_service = CostForecastService()
-        solar_service = SolarForecastService()
         data_connector = self._get_data_connector()
 
         params = {}
@@ -251,7 +250,8 @@ class EmhassConnector(OptimizerConnector):
 
         solar = data_connector.get_solar()
         if solar.is_configured:
-            pv_forecast = solar_service.build_pv_power_forecast(self.ha, solar, time_step, int(horizon_hours))
+            provider = SolarForecastProvider.from_dict(solar.forecast_provider_config, self.ha)
+            pv_forecast = provider.get_emhass_power_forecast(time_step, int(horizon_hours)) if provider else []
             if pv_forecast:
                 params['pv_power_forecast'] = pv_forecast
                 logger.info(
@@ -261,7 +261,7 @@ class EmhassConnector(OptimizerConnector):
                     max(pv_forecast) if pv_forecast else 0,
                 )
             else:
-                logger.info('No PV forecast from sensors, EMHASS will use its internal weather-based method')
+                logger.info('No PV forecast from provider, EMHASS will use its internal weather-based method')
         else:
             logger.debug('Solar not configured, skipping PV forecast')
 

@@ -180,17 +180,17 @@ def solar_panels():
             }
         )
 
-        solar_manager.set_estimation_sensors(
-            {
-                'estimated_actual_production': form.estimated_actual_production.data or '',
-                'estimated_energy_production_remaining_today': form.estimated_energy_production_remaining_today.data
-                or '',
-                'estimated_energy_production_today': form.estimated_energy_production_today.data or '',
-                'estimated_energy_production_hour': form.estimated_energy_production_hour.data or '',
-                'estimated_actual_production_offset_day': form.estimated_actual_production_offset_day.data or '',
-                'estimated_energy_production_offset_day': form.estimated_energy_production_offset_day.data or '',
-                'estimated_energy_production_offset_hour': form.estimated_energy_production_offset_hour.data or '',
-            }
+        provider_type = form.forecast_provider_type.data or ''
+        provider_config = {}
+        if provider_type == 'forecast_solar':
+            provider_config = {'sensor_entity': form.forecast_solar_sensor.data or ''}
+        elif provider_type == 'solcast':
+            provider_config = {'forecast_entity': form.solcast_forecast_entity.data or ''}
+        elif provider_type == 'naive':
+            provider_config = {'production_sensor': form.naive_production_sensor.data or ''}
+
+        solar_manager.set_forecast_provider_config(
+            {'type': provider_type, 'config': provider_config} if provider_type else {}
         )
 
         flash('Solar configuration saved successfully!', 'success')
@@ -202,20 +202,11 @@ def solar_panels():
         form.energy_production_today.data = solar_config.sensors.energy_production_today
         form.energy_production_lifetime.data = solar_config.sensors.energy_production_lifetime
 
-        form.estimated_actual_production.data = solar_config.estimation_sensors.estimated_actual_production
-        form.estimated_energy_production_remaining_today.data = (
-            solar_config.estimation_sensors.estimated_energy_production_remaining_today
-        )
-        form.estimated_energy_production_today.data = solar_config.estimation_sensors.estimated_energy_production_today
-        form.estimated_energy_production_hour.data = solar_config.estimation_sensors.estimated_energy_production_hour
-        form.estimated_actual_production_offset_day.data = (
-            solar_config.estimation_sensors.estimated_actual_production_offset_day
-        )
-        form.estimated_energy_production_offset_day.data = (
-            solar_config.estimation_sensors.estimated_energy_production_offset_day
-        )
-        form.estimated_energy_production_offset_hour.data = (
-            solar_config.estimation_sensors.estimated_energy_production_offset_hour
-        )
+        provider = solar_config.forecast_provider_config
+        form.forecast_provider_type.data = provider.get('type', '')
+        config = provider.get('config', {})
+        form.forecast_solar_sensor.data = config.get('sensor_entity', '')
+        form.solcast_forecast_entity.data = config.get('forecast_entity', '')
+        form.naive_production_sensor.data = config.get('production_sensor', '')
 
     return render_template('settings/device/solar-panels.html', form=form, solar=solar_config)

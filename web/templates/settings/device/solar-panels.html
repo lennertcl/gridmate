@@ -39,49 +39,43 @@
             </div>
 
             <div class="form-section">
-                <h4>Solar Estimation Sensors</h4>
-                <p class="section-description">Forecast/estimation sensors (e.g. from <a href="https://www.home-assistant.io/integrations/forecast_solar/" target="_blank">Forecast.Solar</a> integration)</p>
+                <h4>Solar Forecast Provider</h4>
+                <p class="section-description">Choose how solar production forecasts are generated for optimization and dashboard</p>
                 <div class="form-row">
                     <div class="form-col">
-                        <label for="{{ form.estimated_actual_production.id }}">{{ form.estimated_actual_production.label }}</label>
-                        {{ form.estimated_actual_production(class="form-control", placeholder="sensor.energy_production_now") }}
-                        <small>Estimated instantaneous power production (kW)</small>
-                    </div>
-                    <div class="form-col">
-                        <label for="{{ form.estimated_energy_production_today.id }}">{{ form.estimated_energy_production_today.label }}</label>
-                        {{ form.estimated_energy_production_today(class="form-control", placeholder="sensor.energy_production_today") }}
-                        <small>Estimated total production for today (kWh)</small>
+                        <label for="{{ form.forecast_provider_type.id }}">{{ form.forecast_provider_type.label }}</label>
+                        {{ form.forecast_provider_type(class="form-control", id="forecast-provider-type") }}
+                        <small>Select the source for solar production forecasts</small>
                     </div>
                 </div>
-                <div class="form-row">
-                    <div class="form-col">
-                        <label for="{{ form.estimated_energy_production_remaining_today.id }}">{{ form.estimated_energy_production_remaining_today.label }}</label>
-                        {{ form.estimated_energy_production_remaining_today(class="form-control", placeholder="sensor.energy_production_today_remaining") }}
-                        <small>Remaining estimated production for today (kWh)</small>
-                    </div>
-                    <div class="form-col">
-                        <label for="{{ form.estimated_energy_production_hour.id }}">{{ form.estimated_energy_production_hour.label }}</label>
-                        {{ form.estimated_energy_production_hour(class="form-control", placeholder="sensor.energy_production_this_hour") }}
-                        <small>Estimated production this hour (kWh)</small>
+
+                <div id="provider-config-forecast-solar" class="provider-config" style="display: none;">
+                    <div class="form-row">
+                        <div class="form-col">
+                            <label for="{{ form.forecast_solar_sensor.id }}">{{ form.forecast_solar_sensor.label }}</label>
+                            {{ form.forecast_solar_sensor(class="form-control", placeholder="sensor.energy_production_forecast_today") }}
+                            <small>Entity ID of the Forecast.Solar "estimated power +24h" sensor</small>
+                        </div>
                     </div>
                 </div>
-                <div class="form-row">
-                    <div class="form-col">
-                        <label for="{{ form.estimated_actual_production_offset_day.id }}">{{ form.estimated_actual_production_offset_day.label }}</label>
-                        {{ form.estimated_actual_production_offset_day(class="form-control", placeholder="sensor.energy_production_tomorrow") }}
-                        <small>Estimated power 24h from now (kW)</small>
-                    </div>
-                    <div class="form-col">
-                        <label for="{{ form.estimated_energy_production_offset_day.id }}">{{ form.estimated_energy_production_offset_day.label }}</label>
-                        {{ form.estimated_energy_production_offset_day(class="form-control", placeholder="sensor.energy_production_next_day") }}
-                        <small>Estimated total production next 24h (kWh)</small>
+
+                <div id="provider-config-solcast" class="provider-config" style="display: none;">
+                    <div class="form-row">
+                        <div class="form-col">
+                            <label for="{{ form.solcast_forecast_entity.id }}">{{ form.solcast_forecast_entity.label }}</label>
+                            {{ form.solcast_forecast_entity(class="form-control", placeholder="sensor.solcast_pv_forecast_forecast_today") }}
+                            <small>Entity ID of the Solcast forecast_today sensor (HACS integration)</small>
+                        </div>
                     </div>
                 </div>
-                <div class="form-row">
-                    <div class="form-col">
-                        <label for="{{ form.estimated_energy_production_offset_hour.id }}">{{ form.estimated_energy_production_offset_hour.label }}</label>
-                        {{ form.estimated_energy_production_offset_hour(class="form-control", placeholder="sensor.energy_production_next_hour") }}
-                        <small>Estimated production next hour (kWh)</small>
+
+                <div id="provider-config-naive" class="provider-config" style="display: none;">
+                    <div class="form-row">
+                        <div class="form-col">
+                            <label for="{{ form.naive_production_sensor.id }}">{{ form.naive_production_sensor.label }}</label>
+                            {{ form.naive_production_sensor(class="form-control", placeholder="sensor.solar_power_production") }}
+                            <small>Entity ID of your actual production sensor — yesterday's data is used as forecast</small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -92,4 +86,8 @@
         </form>
     </section>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/settings/solar-panels.js') }}"></script>
 {% endblock %}

@@ -31,20 +31,18 @@
         </div>
 
         <div class="explanation-section">
-            <h4><i class="fas fa-cloud-sun"></i> Solar Estimation Sensors</h4>
+            <h4><i class="fas fa-cloud-sun"></i> Solar Forecast Provider</h4>
             <div class="explanation-content">
-                <p>Forecast sensors provide predicted solar production. Recommended integrations are Solcast or Forecast.solar. </p>
+                <p>Choose a forecast provider to predict solar production for optimization and dashboards.</p>
                 <dl>
-                    <dt>Estimated Actual Production</dt>
-                    <dd>Predicted power output right now (kW). 
-                    <dt>Estimated Energy Production Today</dt>
-                    <dd>Total predicted production for today (kWh).</dd>
-                    <dt>Estimated Remaining Today</dt>
-                    <dd>Predicted remaining production until end of day (kWh).</dd>
-                    <dt>Estimated This Hour / Next Hour</dt>
-                    <dd>Predicted production for the current and next hour (kWh).
-                    <dt>Estimated Tomorrow / Next Day</dt>
-                    <dd>Predicted values for 24 hours from now. 
+                    <dt>None</dt>
+                    <dd>No external forecast — EMHASS uses its internal weather-based method.</dd>
+                    <dt>Forecast.Solar</dt>
+                    <dd>Uses the <a href="https://www.home-assistant.io/integrations/forecast_solar/" target="_blank">Forecast.Solar</a> HA integration. Provide the "estimated power +24h" sensor entity ID. Free, ~24h forecast horizon.</dd>
+                    <dt>Solcast</dt>
+                    <dd>Uses the <a href="https://github.com/BJReplay/ha-solcast-solar" target="_blank">Solcast</a> HACS integration. Provide the forecast_today sensor entity ID. High accuracy, up to 48h horizon.</dd>
+                    <dt>Naive (yesterday as forecast)</dt>
+                    <dd>Uses yesterday's actual production data as the forecast. No external service needed — just your inverter's production sensor.</dd>
                 </dl>
             </div>
         </div>
