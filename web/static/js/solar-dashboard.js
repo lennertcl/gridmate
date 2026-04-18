@@ -188,7 +188,7 @@ async function fetch_forecast_history() {
     var end_time = get_solar_end_time();
 
     try {
-        var url = '/api/solar/forecast?start=' + encodeURIComponent(start_time.toISOString()) +
+        var url = baseUrl('/api/solar/forecast') + '?start=' + encodeURIComponent(start_time.toISOString()) +
                   '&end=' + encodeURIComponent(end_time.toISOString());
         var response = await fetch(url);
         if (!response.ok) return;

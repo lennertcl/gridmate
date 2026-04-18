@@ -443,7 +443,7 @@ async function fetch_and_render_price_history() {
     if (!price_chart || !window.HA_CONFIG.has_variable_pricing) return;
 
     try {
-        const response = await fetch('/api/energy-prices');
+        const response = await fetch(baseUrl('/api/energy-prices'));
         if (!response.ok) return;
         const data = await response.json();
         const providers = data.providers || {};
@@ -509,7 +509,7 @@ async function fetch_and_render_solar_history(connection) {
     }
 
     try {
-        const forecast_resp = await fetch('/api/solar/forecast');
+        const forecast_resp = await fetch(baseUrl('/api/solar/forecast'));
         if (forecast_resp.ok) {
             const forecast_data = await forecast_resp.json();
             if (forecast_data.forecast) {
