@@ -158,7 +158,7 @@ Builds PV power forecast from the `estimated_actual_production_offset_day` solar
 
 ### CostForecastService
 
-Builds `load_cost_forecast` (buy price) and `prod_price_forecast` (sell price) from the energy contract configuration. Reads variable pricing sensor history from HA and applies fixed components (taxes, distribution, injection fees) to compute total buy and sell prices per timestep.
+Builds `load_cost_forecast` (buy price) and `prod_price_forecast` (sell price) from the energy contract configuration. Each contract component now exposes `calculate_kwh_unit_price()`, so the forecast service simply sums the direct per-kWh contributions for each timestep. Constant, percentage, and capacity components intentionally contribute `0` to these EMHASS runtime arrays.
 
 ### OptimizationScheduler
 

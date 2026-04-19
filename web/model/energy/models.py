@@ -4,7 +4,7 @@ Energy-related domain models
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 ENERGY_SENSOR_CONSUMPTION_HIGH_TARIFF = 'consumption_high_tariff'
 ENERGY_SENSOR_CONSUMPTION_LOW_TARIFF = 'consumption_low_tariff'
@@ -278,6 +278,14 @@ class EnergyContractComponent:
         """
         raise NotImplementedError('Subclasses must implement calculate_cost')
 
+    def calculate_kwh_unit_price(
+        self,
+        timestamp: datetime,
+        ha_connector: Any = None,
+        price_providers: Optional[Dict[str, Any]] = None,
+    ) -> float:
+        raise NotImplementedError('Subclasses must implement calculate_kwh_unit_price')
+
 
 @dataclass
 class ConstantComponent(EnergyContractComponent):
@@ -334,6 +342,14 @@ class ConstantComponent(EnergyContractComponent):
             details=details,
         )
         return cost, breakdown
+
+    def calculate_kwh_unit_price(
+        self,
+        timestamp: datetime,
+        ha_connector: Any = None,
+        price_providers: Optional[Dict[str, Any]] = None,
+    ) -> float:
+        return 0.0
 
 
 @dataclass
@@ -410,6 +426,14 @@ class FixedComponent(EnergyContractComponent):
         )
         return cost, breakdown
 
+    def calculate_kwh_unit_price(
+        self,
+        timestamp: datetime,
+        ha_connector: Any = None,
+        price_providers: Optional[Dict[str, Any]] = None,
+    ) -> float:
+        return self.fixed_price * self.multiplier
+
 
 @dataclass
 class VariableComponent(EnergyContractComponent):
@@ -467,8 +491,9 @@ class VariableComponent(EnergyContractComponent):
                 self.name, self.__class__.__name__, 0.0, self.multiplier, 'No price provider configured'
             )
 
-        provider_manager = PriceProviderManager(DataConnector())
-        provider = provider_manager.get_by_name(self.price_provider_name)
+        provider = self._get_price_provider(
+            price_providers=None, default_provider_manager=PriceProviderManager(DataConnector())
+        )
         if not provider:
             return 0.0, EnergyCostBreakdown(
                 self.name,
@@ -525,6 +550,41 @@ class VariableComponent(EnergyContractComponent):
         )
 
         return final_cost, breakdown
+
+    def calculate_kwh_unit_price(
+        self,
+        timestamp: datetime,
+        ha_connector: Any = None,
+        price_providers: Optional[Dict[str, Any]] = None,
+    ) -> float:
+        provider = self._get_price_provider(price_providers=price_providers)
+        if not provider:
+            return 0.0
+
+        price = provider.get_kwh_price(timestamp, ha_connector)
+        if price is None:
+            price = 0.0
+
+        return ((price * self.variable_price_multiplier) + self.variable_price_constant) * self.multiplier
+
+    def _get_price_provider(
+        self,
+        price_providers: Optional[Dict[str, Any]] = None,
+        default_provider_manager: Any = None,
+    ) -> Any:
+        if not self.price_provider_name:
+            return None
+
+        if price_providers is not None:
+            return price_providers.get(self.price_provider_name)
+
+        provider_manager = default_provider_manager
+        if provider_manager is None:
+            from web.model.data.data_connector import DataConnector, PriceProviderManager
+
+            provider_manager = PriceProviderManager(DataConnector())
+
+        return provider_manager.get_by_name(self.price_provider_name)
 
 
 @dataclass
@@ -601,6 +661,14 @@ class CapacityComponent(EnergyContractComponent):
         )
         return cost, breakdown
 
+    def calculate_kwh_unit_price(
+        self,
+        timestamp: datetime,
+        ha_connector: Any = None,
+        price_providers: Optional[Dict[str, Any]] = None,
+    ) -> float:
+        return 0.0
+
 
 @dataclass
 class PercentageComponent(EnergyContractComponent):
@@ -656,6 +724,14 @@ class PercentageComponent(EnergyContractComponent):
             details=details,
         )
         return cost, breakdown
+
+    def calculate_kwh_unit_price(
+        self,
+        timestamp: datetime,
+        ha_connector: Any = None,
+        price_providers: Optional[Dict[str, Any]] = None,
+    ) -> float:
+        return 0.0
 
     def adjust_indices_after_removal(self, removed_index: int) -> None:
         self.applies_to_indices = [

@@ -186,8 +186,9 @@ Translates GridMate config to EMHASS API calls.
 Generates `load_cost_forecast` and `prod_price_forecast` arrays from the user's EnergyContract.
 
 - Accepts `time_step` and `horizon_hours` directly (no longer depends on OptimizationConfig)
-- Reads variable component sensor forecasts from HA entity attributes
-- Falls back to P(t-24h) for missing forecast data
+- Delegates per-timestep unit-price calculation to `EnergyContractComponent.calculate_kwh_unit_price()`
+- Includes only direct per-kWh components in the runtime arrays: fixed and variable components
+- Excludes constant, percentage, and capacity components from the runtime arrays by returning `0` for those component types
 
 ## Forms
 

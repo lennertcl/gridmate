@@ -689,20 +689,18 @@ EMHASS only needs the **marginal cost** of consuming/producing one additional kW
 | `ConstantComponent` (fixed monthly fees) | **Excluded** | Does not affect marginal cost per kWh |
 | `FixedComponent` (per-kWh) | **Included** directly | Directly adds to marginal cost |
 | `VariableComponent` (dynamic pricing) | **Included** with time-resolved values | Core of time-varying cost |
-| `PercentageComponent` (VAT) | **Applied as multiplier** to per-kWh costs | Scales the marginal cost proportionally |
-| `CapacityComponent` (capacity tariff) | **Included** as marginal peak penalty | See section 8.4 |
+| `PercentageComponent` (VAT) | **Excluded** | EMHASS only receives direct per-kWh unit prices |
+| `CapacityComponent` (capacity tariff) | **Excluded** | Not a direct per-kWh unit price |
 
 ### 8.2 Algorithm for `load_cost_forecast`
 
 1. Determine the optimisation window: `start_time` to `start_time + forecast_horizon_hours`
 2. Generate timestamps at `optimization_time_step` intervals
 3. For each timestamp:
-   a. If the contract has a `VariableComponent` for consumption with a price sensor:
-      - Read the price sensor's forecast value from HA for that timestamp (see section 8.3)
-      - Apply the formula: `effective_price = (sensor_value × variable_price_multiplier) + variable_price_constant`
-   b. Add all `FixedComponent` prices for consumption: sum their `fixed_price` values
-   c. Add the capacity tariff marginal cost if applicable (see section 8.4)
-   d. Apply `PercentageComponent` (VAT): multiply by `(1 + percentage / 100)`
+    a. Sum `calculate_kwh_unit_price(timestamp)` over all non-injection components
+    b. `ConstantComponent`, `PercentageComponent`, and `CapacityComponent` return `0`
+    c. `FixedComponent` returns `fixed_price × multiplier`
+    d. `VariableComponent` returns `(price_provider.get_kwh_price(timestamp) × variable_price_multiplier + variable_price_constant) × multiplier`
 4. Return as a flat list of floats
 
 ### 8.3 Price Forecast Sensor Handling
@@ -717,24 +715,15 @@ Users configure a price forecast sensor (e.g., the Nord Pool integration). The s
 
 ### 8.4 Capacity Tariff (CapacityComponent) in Cost Forecast
 
-The `CapacityComponent` represents a capacity tariff — a cost based on the peak 15-minute power draw in a billing period. This can and should be included in the optimisation cost forecast as a marginal peak penalty.
-
-**Algorithm:**
-
-1. Fetch the current peak 15-minute power for the current billing period (this data is already available in the costs dashboard)
-2. For each timestep, estimate whether the sum of scheduled loads could cause a new peak
-3. If any 15-minute window exceeds the current peak, add the marginal cost: `(new_peak - current_peak) × capacity_price_per_kw`
-4. Keep the period definition in mind (monthly/yearly as defined by the `CapacityComponent`)
-
-**Example:** If the current monthly peak is 3 kW and the optimiser schedules a window at 4 kW, the marginal cost is `1 kW × capacity_price_multiplier`.
+`CapacityComponent` is intentionally excluded from `load_cost_forecast` and `prod_price_forecast`. The runtime arrays sent to EMHASS are restricted to direct €/kWh unit prices only.
 
 ### 8.5 Algorithm for `prod_price_forecast`
 
 1. Same timestep generation as `load_cost_forecast`
 2. For each timestamp:
-   a. If the contract has a `VariableComponent` marked `is_injection_reward`: read price sensor value, apply formula
-   b. Add `FixedComponent` injection reward prices
-   c. Apply `PercentageComponent` (VAT) if applicable
+    a. Sum `calculate_kwh_unit_price(timestamp)` over all components marked `is_injection_reward`
+    b. `FixedComponent` injection rewards contribute `fixed_price × multiplier`
+    c. `VariableComponent` injection rewards contribute `(price_provider.get_kwh_price(timestamp) × variable_price_multiplier + variable_price_constant) × multiplier`
 3. Return as a flat list of floats
 
 ### 8.6 Concrete Example (Belgian Market)
@@ -747,6 +736,7 @@ Given a contract with:
 - `PercentageComponent` "BTW" at 6%
 
 Per-timestep marginal cost = `((nordpool_price × 1.0429 + 0.0745) + 0.050329 + 0.002042 + 0.0747) × 1.06`
+Per-timestep `load_cost_forecast` value = `(nordpool_price × 1.0429 + 0.0745) + 0.050329 + 0.002042 + 0.0747`
 
 ---
 

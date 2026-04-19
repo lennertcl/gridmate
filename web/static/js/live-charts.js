@@ -21,6 +21,7 @@ function build_chart_options() {
         animation: false,
         plugins: { legend: { position: 'top' } },
         elements: { point: { radius: 0 } },
+        interaction: { mode: 'index', intersect: false },
         scales: {
             x: {
                 type: 'time',
@@ -237,6 +238,7 @@ function create_price_chart(price_sensors, start_time, end_time) {
             animation: false,
             plugins: { legend: { position: 'top' } },
             elements: { point: { radius: 3 } },
+            interaction: { mode: 'index', intersect: false },
             scales: {
                 x: {
                     type: 'time',
