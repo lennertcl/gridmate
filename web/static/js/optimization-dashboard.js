@@ -4,7 +4,124 @@ var DEVICE_COLORS = [
     '#8b5cf6',
     '#850324',
     '#07145e',
+    '#053d09',
+    '#ff3d3d',
+    '#3c7d80',
+    '#643711',
+    '#6c6d37',
 ];
+
+function get_device_name(device_id) {
+    return (DEVICE_NAMES && DEVICE_NAMES[device_id]) || device_id;
+}
+
+function get_device_created_at(device_id) {
+    var match = (device_id || '').match(/_(\d+)$/);
+    return match ? parseInt(match[1], 10) : 0;
+}
+
+function get_device_color_index(device_id) {
+    var normalized_device_id = device_id || '';
+    var hash_value = 0;
+    var index;
+
+    for (index = 0; index < normalized_device_id.length; index += 1) {
+        hash_value = (hash_value * 31 + normalized_device_id.charCodeAt(index)) >>> 0;
+    }
+
+    return hash_value % DEVICE_COLORS.length;
+}
+
+function build_device_color_map(device_ids) {
+    var device_color_map = {};
+    var used_colors = {};
+
+    device_ids.forEach(function(device_id) {
+        var color_offset;
+        var preferred_index = get_device_color_index(device_id);
+        var resolved_color = DEVICE_COLORS[preferred_index];
+
+        for (color_offset = 0; color_offset < DEVICE_COLORS.length; color_offset += 1) {
+            var candidate_color = DEVICE_COLORS[(preferred_index + color_offset) % DEVICE_COLORS.length];
+            if (!used_colors[candidate_color]) {
+                resolved_color = candidate_color;
+                break;
+            }
+        }
+
+        device_color_map[device_id] = resolved_color;
+        used_colors[resolved_color] = true;
+    });
+
+    return device_color_map;
+}
+
+function get_value_bounds(values) {
+    return values.reduce(function(bounds, value) {
+        if (!Number.isFinite(value)) {
+            return bounds;
+        }
+
+        bounds.min = Math.min(bounds.min, value, 0);
+        bounds.max = Math.max(bounds.max, value, 0);
+        return bounds;
+    }, { min: 0, max: 0 });
+}
+
+function align_zero_bounds(bounds_by_axis) {
+    var axis_ids = Object.keys(bounds_by_axis);
+    var target_ratio = axis_ids.reduce(function(max_ratio, axis_id) {
+        var bounds = bounds_by_axis[axis_id];
+        var range = bounds.max - bounds.min;
+        var ratio = range > 0 ? (-bounds.min) / range : 0;
+        return Math.max(max_ratio, ratio);
+    }, 0);
+
+    axis_ids.forEach(function(axis_id) {
+        var bounds = bounds_by_axis[axis_id];
+        var range = bounds.max - bounds.min;
+        var current_ratio = range > 0 ? (-bounds.min) / range : 0;
+
+        if (target_ratio <= 0 || Math.abs(current_ratio - target_ratio) < 0.0001) {
+            return;
+        }
+
+        if (current_ratio < target_ratio && bounds.max > 0) {
+            bounds.min = -(target_ratio * bounds.max) / (1 - target_ratio);
+            return;
+        }
+
+        if (target_ratio > 0 && bounds.min < 0) {
+            bounds.max = (-bounds.min * (1 - target_ratio)) / target_ratio;
+        }
+    });
+
+    return bounds_by_axis;
+}
+
+function add_bounds_margin(bounds_by_axis, margin_ratio) {
+    Object.keys(bounds_by_axis).forEach(function(axis_id) {
+        var bounds = bounds_by_axis[axis_id];
+        var range = bounds.max - bounds.min;
+        var padding = (range || 1) * margin_ratio;
+
+        bounds.min -= padding;
+        bounds.max += padding;
+    });
+
+    return bounds_by_axis;
+}
+
+function format_clean_tick(value, step, decimals) {
+    var rounded_value = Math.round(value / step) * step;
+    var tolerance = step / 20;
+
+    if (Math.abs(value - rounded_value) > tolerance) {
+        return '';
+    }
+
+    return String(Number(rounded_value.toFixed(decimals)));
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     checkStatus();
@@ -41,6 +158,10 @@ function checkStatus() {
 function renderEnergyPlanChart(result) {
     var canvas = document.getElementById('energy-plan-chart');
     if (!canvas) return;
+    var priceValues = [];
+    var pvValues = [];
+    var chargeValues = [];
+    var dischargeValues = [];
 
     var labels = result.load_forecast.map(function(p) {
         return formatTime(p.timestamp);
@@ -52,9 +173,22 @@ function renderEnergyPlanChart(result) {
         });
     }
 
-    var deviceIds = Object.keys(result.device_power_forecasts || {});
+    var deviceIds = Object.keys(result.device_power_forecasts || {}).sort(function(first_device_id, second_device_id) {
+        var created_at_difference = get_device_created_at(first_device_id) - get_device_created_at(second_device_id);
+        if (created_at_difference !== 0) {
+            return created_at_difference;
+        }
+
+        var name_comparison = get_device_name(first_device_id).localeCompare(get_device_name(second_device_id));
+        if (name_comparison !== 0) {
+            return name_comparison;
+        }
+
+        return first_device_id.localeCompare(second_device_id);
+    });
 
     var devicePowerArrays = {};
+    var deviceColorMap = build_device_color_map(deviceIds);
     deviceIds.forEach(function(deviceId) {
         var points = result.device_power_forecasts[deviceId] || [];
         devicePowerArrays[deviceId] = points.map(function(p) { return p.value; });
@@ -76,9 +210,9 @@ function renderEnergyPlanChart(result) {
         order: 2,
     });
 
-    deviceIds.forEach(function(deviceId, index) {
-        var color = DEVICE_COLORS[index % DEVICE_COLORS.length];
-        var deviceName = (DEVICE_NAMES && DEVICE_NAMES[deviceId]) || deviceId;
+    deviceIds.forEach(function(deviceId) {
+        var color = deviceColorMap[deviceId] || DEVICE_COLORS[get_device_color_index(deviceId)];
+        var deviceName = get_device_name(deviceId);
         datasets.push({
             label: deviceName,
             data: devicePowerArrays[deviceId],
@@ -91,7 +225,7 @@ function renderEnergyPlanChart(result) {
     });
 
     if (result.pv_forecast && result.pv_forecast.length > 0) {
-        var pvValues = result.pv_forecast.map(function(p) { return p.value; });
+        pvValues = result.pv_forecast.map(function(p) { return p.value; });
         datasets.push({
             label: 'Solar Production',
             data: pvValues,
@@ -108,6 +242,7 @@ function renderEnergyPlanChart(result) {
     }
 
     if (result.load_cost_forecast && result.load_cost_forecast.length > 0) {
+        priceValues = priceValues.concat(result.load_cost_forecast.map(function(p) { return p.value; }));
         datasets.push({
             label: 'Consumption Price',
             data: result.load_cost_forecast.map(function(p) { return p.value; }),
@@ -126,6 +261,7 @@ function renderEnergyPlanChart(result) {
     }
 
     if (result.prod_price_forecast && result.prod_price_forecast.length > 0) {
+        priceValues = priceValues.concat(result.prod_price_forecast.map(function(p) { return p.value; }));
         datasets.push({
             label: 'Injection Price',
             data: result.prod_price_forecast.map(function(p) { return p.value; }),
@@ -144,10 +280,10 @@ function renderEnergyPlanChart(result) {
     }
 
     if (result.battery_power_forecast && result.battery_power_forecast.length > 0) {
-        var chargeValues = result.battery_power_forecast.map(function(p) {
+        chargeValues = result.battery_power_forecast.map(function(p) {
             return p.value < 0 ? -p.value : 0;
         });
-        var dischargeValues = result.battery_power_forecast.map(function(p) {
+        dischargeValues = result.battery_power_forecast.map(function(p) {
             return p.value > 0 ? -p.value : 0;
         });
 
@@ -170,6 +306,30 @@ function renderEnergyPlanChart(result) {
             order: 2,
         });
     }
+
+    var powerBounds = labels.reduce(function(bounds, _, index) {
+        var positivePower = (baseLoad[index] || 0) + (chargeValues[index] || 0);
+        var negativePower = dischargeValues[index] || 0;
+
+        deviceIds.forEach(function(deviceId) {
+            var value = (devicePowerArrays[deviceId] || [])[index] || 0;
+            if (value >= 0) {
+                positivePower += value;
+            } else {
+                negativePower += value;
+            }
+        });
+
+        bounds.min = Math.min(bounds.min, negativePower, pvValues[index] || 0);
+        bounds.max = Math.max(bounds.max, positivePower, pvValues[index] || 0);
+        return bounds;
+    }, { min: 0, max: 0 });
+
+    var alignedBounds = priceValues.length > 0
+        ? align_zero_bounds({ y: powerBounds, y_price: get_value_bounds(priceValues) })
+        : { y: powerBounds };
+
+    alignedBounds = add_bounds_margin(alignedBounds, 0.03);
 
     new Chart(canvas.getContext('2d'), {
         type: 'bar',
@@ -215,6 +375,8 @@ function renderEnergyPlanChart(result) {
                 },
                 y: {
                     stacked: true,
+                    min: alignedBounds.y.min,
+                    max: alignedBounds.y.max,
                     title: {
                         display: true,
                         text: 'Power (kW)',
@@ -222,17 +384,27 @@ function renderEnergyPlanChart(result) {
                     grid: {
                         color: 'rgba(0, 0, 0, 0.05)',
                     },
-                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return format_clean_tick(value, 0.5, 1);
+                        },
+                    },
                 },
                 y_price: {
                     position: 'right',
-                    beginAtZero: true,
+                    min: alignedBounds.y_price ? alignedBounds.y_price.min : undefined,
+                    max: alignedBounds.y_price ? alignedBounds.y_price.max : undefined,
                     title: {
                         display: true,
                         text: 'Price (€/kWh)',
                     },
                     grid: {
                         drawOnChartArea: false,
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return format_clean_tick(value, 0.05, 2);
+                        },
                     },
                 },
             },
