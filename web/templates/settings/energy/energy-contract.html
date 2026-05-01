@@ -16,7 +16,6 @@
         <option value="{{ sensor.id }}">{{ sensor.label }}</option>
         {% endfor %}
     {% endif %}
-    <option value="__custom_sensor__">Custom sensor</option>
 </datalist>
 
 <!-- Store default sensor value for use in JavaScript -->
@@ -322,7 +321,7 @@
                         </div>
                         <div class="form-row-modal">
                             <label for="fixed_energy_sensor">Energy Sensor</label>
-                            {{ fixed_form.energy_sensor(class="form-control", id="fixed_energy_sensor", list="sensorList", placeholder="Predefined option or enter HA sensor ID") }}
+                            {{ fixed_form.energy_sensor(class="form-control", id="fixed_energy_sensor") }}
                         </div>
                         <div class="form-row-modal">
                             <label for="fixed_multiplier">Multiplier</label>
@@ -368,7 +367,7 @@
                         </div>
                         <div class="form-row-modal">
                             <label for="variable_energy_sensor">Energy Sensor</label>
-                            {{ variable_form.energy_sensor(class="form-control", id="variable_energy_sensor", list="sensorList", placeholder="Predefined option or enter HA sensor ID") }}
+                            {{ variable_form.energy_sensor(class="form-control", id="variable_energy_sensor") }}
                         </div>
                         <div class="form-row-modal">
                             <label for="variable_multiplier">Multiplier</label>

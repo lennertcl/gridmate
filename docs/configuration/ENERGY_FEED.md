@@ -85,6 +85,52 @@ Usage represents total household energy consumption (grid + self-consumed solar)
 
 The usage mode is configured on the Energy Feed settings page. In auto mode, the manual sensor fields are hidden.
 
+When `single_tariff` is enabled, the Energy Feed page also hides the low-tariff sensor inputs for consumption, injection, and manual usage because those counters are not needed in single-tariff mode.
+
+## Tariff Windows
+
+Tariff windows define when high and low electricity tariffs apply. These windows are used throughout GridMate for:
+
+- **Cost calculations**: Components linked to high/low tariff sensors only count energy within their active window
+- **EMHASS optimization**: The cost forecast applies component unit prices conditionally based on whether the tariff window is active at each forecast timestamp
+
+### Configuration
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `high_tariff_start` | string (HH:MM) | `07:00` | Start time of the high tariff window |
+| `high_tariff_end` | string (HH:MM) | `22:00` | End time of the high tariff window |
+| `exclude_weekend` | boolean | `True` | If True, weekends always use the low tariff rate |
+| `single_tariff` | boolean | `False` | If True, no high/low split — everything is treated as a single tariff |
+
+### Default Belgian Tariff Schedule
+
+The defaults follow the standard Belgian tariff schedule:
+
+- **High tariff (dagtarief)**: Monday-Friday, 07:00-22:00
+- **Low tariff (nachttarief)**: Monday-Friday 22:00-07:00, full weekends (continuous)
+
+### TariffWindow Domain Model
+
+The `TariffWindow` dataclass encapsulates tariff window logic with the following key methods:
+
+- `is_high_tariff_active(timestamp)` → `bool`: Returns True if the high tariff window is active at the given timestamp. Takes into account the start/end times, weekend exclusion, and single tariff mode.
+- `is_sensor_active_at(energy_sensor, timestamp)` → `bool`: Returns True if the given energy sensor should be active at the timestamp. Uses `ENERGY_SENSOR_TARIFF_AFFINITY` to determine if a sensor is tied to the high or low tariff window, or is always active (for total sensors).
+- `get_low_tariff_window()` → `str`: Returns the inverse window string (e.g., `22:00-07:00`).
+
+### Sensor Tariff Affinity
+
+Each contract energy sensor has a tariff affinity that determines when it is active:
+
+| Sensor | Affinity |
+|---|---|
+| `consumption_high_tariff` | high |
+| `consumption_low_tariff` | low |
+| `total_consumption` | always active |
+| `injection_high_tariff` | high |
+| `injection_low_tariff` | low |
+| `total_injection` | always active |
+
 ## Unit Configuration
 
 All measurements use fixed, standardized units throughout GridMate:

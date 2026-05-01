@@ -39,9 +39,9 @@
             <div class="explanation-content">
                 <dl>
                     <dt>Total Consumption High/Low Tariff</dt>
-                    <dd>Cumulative kWh counters from your smart meter for energy consumed from the grid, split by tariff period. These are ever-increasing counter sensors (e.g., <code>sensor.electricity_used_tariff_1</code>).</dd>
+                    <dd>Cumulative kWh counters from your smart meter for energy consumed from the grid, split by tariff period. These are ever-increasing counter sensors (e.g., <code>sensor.electricity_used_tariff_1</code>). If you enable single tariff mode, the low tariff field is hidden because GridMate no longer expects a split counter.</dd>
                     <dt>Total Injection High/Low Tariff</dt>
-                    <dd>Cumulative kWh counters for energy delivered back to the grid, split by tariff period (e.g., <code>sensor.electricity_delivered_tariff_1</code>).</dd>
+                    <dd>Cumulative kWh counters for energy delivered back to the grid, split by tariff period (e.g., <code>sensor.electricity_delivered_tariff_1</code>). If you enable single tariff mode, the low tariff field is hidden for the same reason.</dd>
                 </dl>
             </div>
         </div>
@@ -67,7 +67,7 @@
                         <br>The energy dashboard aligns the Home Assistant 5-minute buckets for those sensors before it derives self-consumed solar and self-sufficiency.
                         <br><strong>Manual:</strong> Provide a dedicated usage sensor directly.</dd>
                     <dt>Actual Usage / Total Usage Sensors</dt>
-                    <dd>Only needed in manual mode. Provide your own sensor for instantaneous usage (kW) and cumulative usage counters (kWh) per tariff.</dd>
+                    <dd>Only needed in manual mode. Provide your own sensor for instantaneous usage (kW) and cumulative usage counters (kWh) per tariff. In single tariff mode, the low tariff usage counter is hidden because only one cumulative usage counter is needed.</dd>
                     <dt>Energy Dashboard Summary</dt>
                     <dd>These four live sensors power the energy dashboard cards, the energy summary strip with usage, imported, self-consumed, exported, self-sufficiency, and net grid values, and all time-series charts.</dd>
                 </dl>

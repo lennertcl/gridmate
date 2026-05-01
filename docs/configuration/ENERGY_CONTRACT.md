@@ -65,14 +65,17 @@ cost = fixed_price × energy_consumed_kwh × multiplier
 **Properties**:
 - **fixed_price** (float): Price in €/kWh
 - **is_injection_reward** (boolean, default: False): If True, charges apply to injected energy instead of consumed energy. Injection rewards produce a negative cost that is deducted from the total bill, capped at 0 (never becomes a charge)
-- **energy_sensor** (string, optional, default: `total_consumption`): Energy source for the component. Can be one of these predefined values:
+- **energy_sensor** (string, default: `total_consumption`): Energy source for the component. Must be one of these predefined values, selected from the Energy Feed configuration:
   - `consumption_high_tariff`
   - `consumption_low_tariff`
   - `total_consumption`
   - `injection_high_tariff`
   - `injection_low_tariff`
   - `total_injection`
-  It can also be a custom Home Assistant energy sensor ID (for example `sensor.custom_meter_delta`). Custom sensors are fetched dynamically from Home Assistant if not already loaded.
+  
+  The sensor field is rendered as a `<select>` dropdown in the UI, limited to these six options which correspond to the sensors configured in the Energy Feed.
+  
+  When a tariff-specific sensor is used (e.g., `consumption_high_tariff`), cost calculations and EMHASS price forecasts automatically apply the tariff window from the Energy Feed to determine when this component is active.
 - **multiplier** (float): Scaling factor for this component
 
 **Options**:
@@ -115,7 +118,7 @@ cost = [provider_price(t) × variable_price_multiplier + variable_price_constant
 - **variable_price_multiplier** (float): Multiplier applied to provider price (usually 1.0 or close to it)
 - **variable_price_constant** (float): Additional fixed offset in €/kWh to add to each reading
 - **is_injection_reward** (boolean, default: False): If True, applies to injected energy. Injection rewards produce a negative cost that is deducted from the total bill, capped at 0 (never becomes a charge)
-- **energy_sensor** (string, optional, default: `total_consumption`): Same preset/custom behavior as in `FixedComponent`, but used as the interval energy source for dynamic pricing integration
+- **energy_sensor** (string, default: `total_consumption`): Same preset behavior as in `FixedComponent` — limited to the six predefined sensors from the Energy Feed configuration. Uses the tariff window to conditionally apply pricing.
 - **multiplier** (float): Scaling factor for this component
 
 **Example**:

@@ -332,7 +332,11 @@ def energy_costs():
     form.year.data = year
 
     contract = energy_contract_manager.get_config()
-    calculator = CostCalculationService(contract, ha_connector=energy_data_service.ha_connector)
+    energy_feed = data_connector.get_energy_feed()
+    tariff_window = energy_feed.tariff_window if energy_feed else None
+    calculator = CostCalculationService(
+        contract, ha_connector=energy_data_service.ha_connector, tariff_window=tariff_window
+    )
 
     # Fetch real energy data from Home Assistant
     ha_available = energy_data_service.is_ha_available()

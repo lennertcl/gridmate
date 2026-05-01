@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
-from wtforms import IntegerField, SelectField, StringField, SubmitField
-from wtforms.validators import Length, NumberRange, Optional
+from wtforms import BooleanField, IntegerField, SelectField, StringField, SubmitField
+from wtforms.validators import Length, NumberRange, Optional, Regexp
 
 
 class EnergyFeedConfigForm(FlaskForm):
@@ -32,6 +32,19 @@ class EnergyFeedConfigForm(FlaskForm):
     actual_usage = StringField('Current Power Usage (Live)', validators=[Optional(), Length(max=100)])
     total_usage_high_tariff = StringField('Total Energy Usage - High Tariff', validators=[Optional(), Length(max=100)])
     total_usage_low_tariff = StringField('Total Energy Usage - Low Tariff', validators=[Optional(), Length(max=100)])
+
+    high_tariff_start = StringField(
+        'High Tariff Start',
+        validators=[Optional(), Regexp(r'^\d{2}:\d{2}$', message='Use HH:MM format')],
+        default='07:00',
+    )
+    high_tariff_end = StringField(
+        'High Tariff End',
+        validators=[Optional(), Regexp(r'^\d{2}:\d{2}$', message='Use HH:MM format')],
+        default='22:00',
+    )
+    exclude_weekend = BooleanField('Exclude weekend for high tariff', default=True)
+    single_tariff = BooleanField('Treat as single tariff (no high/low split)', default=False)
 
     submit = SubmitField('Save Configuration')
 

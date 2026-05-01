@@ -17,15 +17,53 @@
             
             <!-- Total Energy Consumption from Grid -->
             <div class="form-section">
+                <h4>Tariff Windows</h4>
+                <p class="section-description">Configure when high and low tariff periods apply. Default: high tariff Mon-Fri 07:00-22:00, low tariff 22:00-07:00 and weekends.</p>
+                <div class="form-row">
+                    <div class="form-col full">
+                        <label>
+                            {{ form.single_tariff(id="single_tariff") }}
+                            {{ form.single_tariff.label.text }}
+                        </label>
+                        <small>Enable if your energy contract has no high/low tariff split</small>
+                    </div>
+                </div>
+                <div id="tariff-window-fields">
+                    <div class="form-row">
+                        <div class="form-col">
+                            <label for="{{ form.high_tariff_start.id }}">High Tariff Window Start</label>
+                            {{ form.high_tariff_start(class="form-control", placeholder="07:00") }}
+                            <small>Start time for high tariff (HH:MM)</small>
+                        </div>
+                        <div class="form-col">
+                            <label for="{{ form.high_tariff_end.id }}">High Tariff Window End</label>
+                            {{ form.high_tariff_end(class="form-control", placeholder="22:00") }}
+                            <small>End time for high tariff (HH:MM)</small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-col full">
+                            <label>
+                                {{ form.exclude_weekend(id="exclude_weekend") }}
+                                {{ form.exclude_weekend.label.text }}
+                            </label>
+                            <small>When enabled, weekends always use the low tariff rate</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Energy Consumption from Grid -->
+            <div class="form-section">
                 <h4>Total Energy Consumption (from Grid)</h4>
                 <p class="section-description">Cumulative energy consumed from the grid by tariff rate</p>
                 <div class="form-row">
-                    <div class="form-col">
+                    <div class="form-col" id="total-consumption-high-tariff-field">
                         <label for="{{ form.total_consumption_high_tariff.id }}">{{ form.total_consumption_high_tariff.label }}</label>
                         {{ form.total_consumption_high_tariff(class="form-control", placeholder="sensor.electricity_used_tariff_1") }}
                         <small>Energy consumed during high tariff periods</small>
                     </div>
-                    <div class="form-col">
+                    <div class="form-col" id="total-consumption-low-tariff-field">
                         <label for="{{ form.total_consumption_low_tariff.id }}">{{ form.total_consumption_low_tariff.label }}</label>
                         {{ form.total_consumption_low_tariff(class="form-control", placeholder="sensor.electricity_used_tariff_2") }}
                         <small>Energy consumed during low tariff periods</small>
@@ -38,12 +76,12 @@
                 <h4>Total Energy Injection (to Grid)</h4>
                 <p class="section-description">Cumulative energy injected/delivered to the grid by tariff rate</p>
                 <div class="form-row">
-                    <div class="form-col">
+                    <div class="form-col" id="total-injection-high-tariff-field">
                         <label for="{{ form.total_injection_high_tariff.id }}">{{ form.total_injection_high_tariff.label }}</label>
                         {{ form.total_injection_high_tariff(class="form-control", placeholder="sensor.electricity_delivered_tariff_1") }}
                         <small>Energy injected during high tariff periods</small>
                     </div>
-                    <div class="form-col">
+                    <div class="form-col" id="total-injection-low-tariff-field">
                         <label for="{{ form.total_injection_low_tariff.id }}">{{ form.total_injection_low_tariff.label }}</label>
                         {{ form.total_injection_low_tariff(class="form-control", placeholder="sensor.electricity_delivered_tariff_2") }}
                         <small>Energy injected during low tariff periods</small>
@@ -88,12 +126,12 @@
                         </div>
                     </div>
                     <div class="form-row">
-                        <div class="form-col">
+                        <div class="form-col" id="total-usage-high-tariff-field">
                             <label for="{{ form.total_usage_high_tariff.id }}">{{ form.total_usage_high_tariff.label }}</label>
                             {{ form.total_usage_high_tariff(class="form-control", placeholder="sensor.energy_usage_high_tariff") }}
                             <small>Total energy usage at high tariff (kWh)</small>
                         </div>
-                        <div class="form-col">
+                        <div class="form-col" id="total-usage-low-tariff-field">
                             <label for="{{ form.total_usage_low_tariff.id }}">{{ form.total_usage_low_tariff.label }}</label>
                             {{ form.total_usage_low_tariff(class="form-control", placeholder="sensor.energy_usage_low_tariff") }}
                             <small>Total energy usage at low tariff (kWh)</small>
@@ -119,6 +157,23 @@
         function toggle() { fields.style.display = mode.value === 'manual' ? '' : 'none'; }
         mode.addEventListener('change', toggle);
         toggle();
+
+        var singleTariff = document.getElementById('single_tariff');
+        var tariffFields = document.getElementById('tariff-window-fields');
+        var lowTariffFields = [
+            document.getElementById('total-consumption-low-tariff-field'),
+            document.getElementById('total-injection-low-tariff-field'),
+            document.getElementById('total-usage-low-tariff-field')
+        ];
+        function toggleTariff() {
+            var hideLowTariffFields = singleTariff.checked;
+            tariffFields.style.display = hideLowTariffFields ? 'none' : '';
+            lowTariffFields.forEach(function(field) {
+                field.style.display = hideLowTariffFields ? 'none' : '';
+            });
+        }
+        singleTariff.addEventListener('change', toggleTariff);
+        toggleTariff();
     });
 </script>
 {% endblock %}

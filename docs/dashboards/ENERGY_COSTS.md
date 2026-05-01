@@ -43,7 +43,7 @@ Provides per-component cost details with a `to_dict()` method that includes a fr
 
 ### CostCalculationService
 
-Orchestrates cost calculations. Key methods:
+Orchestrates cost calculations. Accepts an optional `TariffWindow` from the Energy Feed configuration to enable tariff-aware calculations. When provided, Fixed and Variable components filter energy intervals and unit prices based on whether the tariff window is active at each timestamp. Key methods:
 
 - `calculate_monthly_costs(period_data)` / `calculate_yearly_costs(period_data)` — Returns `(total_cost, list[EnergyCostBreakdown])`
 - `get_meter_readings_summary(period_data)` — Returns a dict with all start/end readings, tariff deltas, totals, and peak power

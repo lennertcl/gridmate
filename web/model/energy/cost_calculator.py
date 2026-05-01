@@ -9,15 +9,21 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
-from .models import EnergyContract, EnergyCostBreakdown, EnergyPeriodData
+from .models import EnergyContract, EnergyCostBreakdown, EnergyPeriodData, TariffWindow
 
 
 class CostCalculationService:
     """Service to calculate energy costs from meter readings and contracts"""
 
-    def __init__(self, energy_contract: Optional[EnergyContract] = None, ha_connector: Any = None):
+    def __init__(
+        self,
+        energy_contract: Optional[EnergyContract] = None,
+        ha_connector: Any = None,
+        tariff_window: Optional[TariffWindow] = None,
+    ):
         self.contract = energy_contract or EnergyContract()
         self.ha_connector = ha_connector
+        self.tariff_window = tariff_window
 
     def get_month_date_range(self, year: int, month: int) -> Tuple[date, date]:
         """Get start and end dates for a given month
@@ -54,13 +60,17 @@ class CostCalculationService:
         if not self.contract or not self.contract.components:
             return 0.0, []
 
-        return self.contract.calculate_monthly_cost(period_data, ha_connector=self.ha_connector)
+        return self.contract.calculate_monthly_cost(
+            period_data, ha_connector=self.ha_connector, tariff_window=self.tariff_window
+        )
 
     def calculate_yearly_costs(self, period_data: EnergyPeriodData) -> Tuple[float, List[EnergyCostBreakdown]]:
         if not self.contract or not self.contract.components:
             return 0.0, []
 
-        return self.contract.calculate_yearly_cost(period_data, ha_connector=self.ha_connector)
+        return self.contract.calculate_yearly_cost(
+            period_data, ha_connector=self.ha_connector, tariff_window=self.tariff_window
+        )
 
     def get_cost_summary(self, period_data: EnergyPeriodData, is_monthly: bool = True) -> Dict:
         """Get comprehensive cost summary including breakdown and totals

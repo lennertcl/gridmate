@@ -1,6 +1,8 @@
 from flask_wtf import FlaskForm
 from wtforms import BooleanField, FloatField, SelectField, StringField
-from wtforms.validators import DataRequired, Length, NumberRange, Optional
+from wtforms.validators import DataRequired, Length, NumberRange
+
+from web.model.energy.models import CONTRACT_ENERGY_SENSOR_CHOICES, ENERGY_SENSOR_DEFAULT
 
 
 class ConstantComponentForm(FlaskForm):
@@ -15,7 +17,11 @@ class FixedComponentForm(FlaskForm):
     multiplier = FloatField('Multiplier', validators=[DataRequired(), NumberRange(min=0.0)])
     fixed_price = FloatField('Price (€/kWh)', validators=[DataRequired(), NumberRange(min=0.0)])
     is_injection_reward = BooleanField('Is Injection Reward', default=False)
-    energy_sensor = StringField('Energy Sensor (default: total consumption)', validators=[Optional(), Length(max=200)])
+    energy_sensor = SelectField(
+        'Energy Sensor',
+        choices=CONTRACT_ENERGY_SENSOR_CHOICES,
+        default=ENERGY_SENSOR_DEFAULT,
+    )
 
 
 class VariableComponentForm(FlaskForm):
@@ -25,7 +31,11 @@ class VariableComponentForm(FlaskForm):
     variable_price_multiplier = FloatField('Price Multiplier', validators=[DataRequired()], default=1.0)
     variable_price_constant = FloatField('Price Constant (€/kWh)', validators=[DataRequired()], default=0.0)
     is_injection_reward = BooleanField('Is Injection Reward', default=False)
-    energy_sensor = StringField('Energy Sensor (default: total consumption)', validators=[Optional(), Length(max=200)])
+    energy_sensor = SelectField(
+        'Energy Sensor',
+        choices=CONTRACT_ENERGY_SENSOR_CHOICES,
+        default=ENERGY_SENSOR_DEFAULT,
+    )
 
 
 class CapacityComponentForm(FlaskForm):

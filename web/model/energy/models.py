@@ -41,6 +41,83 @@ ENERGY_SENSOR_OPTION_LABELS = {
     ENERGY_SENSOR_TOTAL_USAGE: 'Total usage',
 }
 
+CONTRACT_ENERGY_SENSOR_CHOICES = [
+    (ENERGY_SENSOR_CONSUMPTION_HIGH_TARIFF, 'Consumption high tariff'),
+    (ENERGY_SENSOR_CONSUMPTION_LOW_TARIFF, 'Consumption low tariff'),
+    (ENERGY_SENSOR_TOTAL_CONSUMPTION, 'Total consumption'),
+    (ENERGY_SENSOR_INJECTION_HIGH_TARIFF, 'Injection high tariff'),
+    (ENERGY_SENSOR_INJECTION_LOW_TARIFF, 'Injection low tariff'),
+    (ENERGY_SENSOR_TOTAL_INJECTION, 'Total injection'),
+]
+
+ENERGY_SENSOR_TARIFF_AFFINITY = {
+    ENERGY_SENSOR_CONSUMPTION_HIGH_TARIFF: 'high',
+    ENERGY_SENSOR_CONSUMPTION_LOW_TARIFF: 'low',
+    ENERGY_SENSOR_TOTAL_CONSUMPTION: None,
+    ENERGY_SENSOR_INJECTION_HIGH_TARIFF: 'high',
+    ENERGY_SENSOR_INJECTION_LOW_TARIFF: 'low',
+    ENERGY_SENSOR_TOTAL_INJECTION: None,
+}
+
+DEFAULT_HIGH_TARIFF_START = '07:00'
+DEFAULT_HIGH_TARIFF_END = '22:00'
+
+
+@dataclass
+class TariffWindow:
+    high_tariff_start: str = DEFAULT_HIGH_TARIFF_START
+    high_tariff_end: str = DEFAULT_HIGH_TARIFF_END
+    exclude_weekend: bool = True
+    single_tariff: bool = False
+
+    def is_high_tariff_active(self, timestamp: datetime) -> bool:
+        if self.single_tariff:
+            return True
+
+        if self.exclude_weekend and timestamp.weekday() >= 5:
+            return False
+
+        start_minutes = self._parse_time(self.high_tariff_start)
+        end_minutes = self._parse_time(self.high_tariff_end)
+        current_minutes = timestamp.hour * 60 + timestamp.minute
+
+        if start_minutes < end_minutes:
+            return start_minutes <= current_minutes < end_minutes
+        else:
+            return current_minutes >= start_minutes or current_minutes < end_minutes
+
+    def is_sensor_active_at(self, energy_sensor: str, timestamp: datetime) -> bool:
+        affinity = ENERGY_SENSOR_TARIFF_AFFINITY.get(energy_sensor)
+        if affinity is None:
+            return True
+        if affinity == 'high':
+            return self.is_high_tariff_active(timestamp)
+        return not self.is_high_tariff_active(timestamp)
+
+    def get_low_tariff_window(self) -> str:
+        return f'{self.high_tariff_end}-{self.high_tariff_start}'
+
+    def _parse_time(self, time_str: str) -> int:
+        parts = time_str.split(':')
+        return int(parts[0]) * 60 + int(parts[1])
+
+    def to_dict(self) -> Dict:
+        return {
+            'high_tariff_start': self.high_tariff_start,
+            'high_tariff_end': self.high_tariff_end,
+            'exclude_weekend': self.exclude_weekend,
+            'single_tariff': self.single_tariff,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'TariffWindow':
+        return cls(
+            high_tariff_start=data.get('high_tariff_start', DEFAULT_HIGH_TARIFF_START),
+            high_tariff_end=data.get('high_tariff_end', DEFAULT_HIGH_TARIFF_END),
+            exclude_weekend=data.get('exclude_weekend', True),
+            single_tariff=data.get('single_tariff', False),
+        )
+
 
 @dataclass
 class EnergyPeriodData:
@@ -193,6 +270,8 @@ class EnergyFeed:
     total_usage_low_tariff: str = ''
     usage_mode: str = 'auto'
 
+    tariff_window: TariffWindow = field(default_factory=TariffWindow)
+
     power_unit: str = 'kW'
     energy_unit: str = 'kWh'
 
@@ -210,6 +289,7 @@ class EnergyFeed:
             'total_usage_high_tariff': self.total_usage_high_tariff,
             'total_usage_low_tariff': self.total_usage_low_tariff,
             'usage_mode': self.usage_mode,
+            'tariff_window': self.tariff_window.to_dict(),
             'power_unit': self.power_unit,
             'energy_unit': self.energy_unit,
             'last_updated': self.last_updated.isoformat()
@@ -225,6 +305,9 @@ class EnergyFeed:
         elif last_updated is None:
             last_updated = datetime.now()
 
+        tariff_window_data = data.get('tariff_window', {})
+        tariff_window = TariffWindow.from_dict(tariff_window_data) if tariff_window_data else TariffWindow()
+
         return cls(
             total_consumption_high_tariff=data.get('total_consumption_high_tariff', ''),
             total_consumption_low_tariff=data.get('total_consumption_low_tariff', ''),
@@ -236,6 +319,7 @@ class EnergyFeed:
             total_usage_high_tariff=data.get('total_usage_high_tariff', ''),
             total_usage_low_tariff=data.get('total_usage_low_tariff', ''),
             usage_mode=data.get('usage_mode', 'auto'),
+            tariff_window=tariff_window,
             power_unit=data.get('power_unit', 'kW'),
             energy_unit=data.get('energy_unit', 'kWh'),
             last_updated=last_updated,
@@ -264,7 +348,11 @@ class EnergyContractComponent:
         raise NotImplementedError('Subclasses must implement from_dict')
 
     def calculate_cost(
-        self, period_data: 'EnergyPeriodData', is_monthly: bool = True, ha_connector: Any = None
+        self,
+        period_data: 'EnergyPeriodData',
+        is_monthly: bool = True,
+        ha_connector: Any = None,
+        tariff_window: Optional['TariffWindow'] = None,
     ) -> Tuple[float, 'EnergyCostBreakdown']:
         """Calculate cost for a given energy period
 
@@ -272,6 +360,7 @@ class EnergyContractComponent:
             period_data: EnergyPeriodData containing measurements for the period
             is_monthly: True for monthly calculation, False for yearly
             ha_connector: HAConnector instance for providers that need HA access
+            tariff_window: Optional TariffWindow for tariff-aware calculations
 
         Returns:
             Tuple of (total_cost_in_euros, EnergyCostBreakdown with details)
@@ -283,6 +372,7 @@ class EnergyContractComponent:
         timestamp: datetime,
         ha_connector: Any = None,
         price_providers: Optional[Dict[str, Any]] = None,
+        tariff_window: Optional['TariffWindow'] = None,
     ) -> float:
         raise NotImplementedError('Subclasses must implement calculate_kwh_unit_price')
 
@@ -314,19 +404,19 @@ class ConstantComponent(EnergyContractComponent):
         )
 
     def calculate_cost(
-        self, period_data: 'EnergyPeriodData', is_monthly: bool = True, ha_connector: Any = None
+        self,
+        period_data: 'EnergyPeriodData',
+        is_monthly: bool = True,
+        ha_connector: Any = None,
+        tariff_window: Optional['TariffWindow'] = None,
     ) -> Tuple[float, 'EnergyCostBreakdown']:
         if self.period == 'month':
-            # Monthly fee
             if is_monthly:
                 cost = self.price_constant * self.multiplier
             else:
-                # Yearly calculation: 12 months of fees
                 cost = self.price_constant * 12 * self.multiplier
-        else:  # yearly
-            # Yearly fee
+        else:
             if is_monthly:
-                # Monthly calculation: divide yearly fee by 12
                 cost = (self.price_constant / 12) * self.multiplier
             else:
                 cost = self.price_constant * self.multiplier
@@ -348,6 +438,7 @@ class ConstantComponent(EnergyContractComponent):
         timestamp: datetime,
         ha_connector: Any = None,
         price_providers: Optional[Dict[str, Any]] = None,
+        tariff_window: Optional['TariffWindow'] = None,
     ) -> float:
         return 0.0
 
@@ -381,32 +472,67 @@ class FixedComponent(EnergyContractComponent):
             energy_sensor=data.get('energy_sensor') or data.get('total_consumption_sensor') or ENERGY_SENSOR_DEFAULT,
         )
 
-    def _resolve_energy_kwh(self, period_data: 'EnergyPeriodData') -> float:
+    def _resolve_energy_kwh(
+        self, period_data: 'EnergyPeriodData', tariff_window: Optional['TariffWindow'] = None
+    ) -> float:
         sensor_key = self.energy_sensor or ENERGY_SENSOR_DEFAULT
 
-        if sensor_key == ENERGY_SENSOR_CONSUMPTION_HIGH_TARIFF:
-            return period_data.consumption_high_tariff
-        if sensor_key == ENERGY_SENSOR_CONSUMPTION_LOW_TARIFF:
-            return period_data.consumption_low_tariff
-        if sensor_key == ENERGY_SENSOR_TOTAL_CONSUMPTION:
-            return period_data.total_consumption
-        if sensor_key == ENERGY_SENSOR_INJECTION_HIGH_TARIFF:
-            return period_data.injection_high_tariff
-        if sensor_key == ENERGY_SENSOR_INJECTION_LOW_TARIFF:
-            return period_data.injection_low_tariff
-        if sensor_key == ENERGY_SENSOR_TOTAL_INJECTION:
-            return period_data.total_injection
+        if not tariff_window:
+            if sensor_key == ENERGY_SENSOR_CONSUMPTION_HIGH_TARIFF:
+                return period_data.consumption_high_tariff
+            if sensor_key == ENERGY_SENSOR_CONSUMPTION_LOW_TARIFF:
+                return period_data.consumption_low_tariff
+            if sensor_key == ENERGY_SENSOR_TOTAL_CONSUMPTION:
+                return period_data.total_consumption
+            if sensor_key == ENERGY_SENSOR_INJECTION_HIGH_TARIFF:
+                return period_data.injection_high_tariff
+            if sensor_key == ENERGY_SENSOR_INJECTION_LOW_TARIFF:
+                return period_data.injection_low_tariff
+            if sensor_key == ENERGY_SENSOR_TOTAL_INJECTION:
+                return period_data.total_injection
+
+            sensor_history = period_data.sensor_history.get(sensor_key, [])
+            if len(sensor_history) <= 1:
+                return 0.0
+            return sum(
+                (entry.get('change') or 0.0) for entry in sensor_history[1:] if (entry.get('change') or 0.0) > 0.0
+            )
+
+        affinity = ENERGY_SENSOR_TARIFF_AFFINITY.get(sensor_key)
+        if affinity is None:
+            if sensor_key == ENERGY_SENSOR_TOTAL_CONSUMPTION:
+                return period_data.total_consumption
+            if sensor_key == ENERGY_SENSOR_TOTAL_INJECTION:
+                return period_data.total_injection
+            sensor_history = period_data.sensor_history.get(sensor_key, [])
+            if len(sensor_history) <= 1:
+                return 0.0
+            return sum(
+                (entry.get('change') or 0.0) for entry in sensor_history[1:] if (entry.get('change') or 0.0) > 0.0
+            )
 
         sensor_history = period_data.sensor_history.get(sensor_key, [])
         if len(sensor_history) <= 1:
             return 0.0
 
-        return sum((entry.get('change') or 0.0) for entry in sensor_history[1:] if (entry.get('change') or 0.0) > 0.0)
+        total = 0.0
+        for entry in sensor_history[1:]:
+            change = entry.get('change') or 0.0
+            if change <= 0.0:
+                continue
+            entry_dt = datetime.fromtimestamp(entry.get('start', 0) / 1000.0)
+            if tariff_window.is_sensor_active_at(sensor_key, entry_dt):
+                total += change
+        return total
 
     def calculate_cost(
-        self, period_data: 'EnergyPeriodData', is_monthly: bool = True, ha_connector: Any = None
+        self,
+        period_data: 'EnergyPeriodData',
+        is_monthly: bool = True,
+        ha_connector: Any = None,
+        tariff_window: Optional['TariffWindow'] = None,
     ) -> Tuple[float, 'EnergyCostBreakdown']:
-        energy_kwh = self._resolve_energy_kwh(period_data)
+        energy_kwh = self._resolve_energy_kwh(period_data, tariff_window=tariff_window)
 
         if self.is_injection_reward:
             cost = -(self.fixed_price) * energy_kwh * self.multiplier
@@ -431,7 +557,10 @@ class FixedComponent(EnergyContractComponent):
         timestamp: datetime,
         ha_connector: Any = None,
         price_providers: Optional[Dict[str, Any]] = None,
+        tariff_window: Optional['TariffWindow'] = None,
     ) -> float:
+        if tariff_window and not tariff_window.is_sensor_active_at(self.energy_sensor, timestamp):
+            return 0.0
         return self.fixed_price * self.multiplier
 
 
@@ -474,7 +603,11 @@ class VariableComponent(EnergyContractComponent):
         )
 
     def calculate_cost(
-        self, period_data: 'EnergyPeriodData', is_monthly: bool = True, ha_connector: Any = None
+        self,
+        period_data: 'EnergyPeriodData',
+        is_monthly: bool = True,
+        ha_connector: Any = None,
+        tariff_window: Optional['TariffWindow'] = None,
     ) -> Tuple[float, 'EnergyCostBreakdown']:
         from web.model.data.data_connector import DataConnector, PriceProviderManager
 
@@ -520,6 +653,11 @@ class VariableComponent(EnergyContractComponent):
             if energy_change <= 0:
                 continue
 
+            if tariff_window:
+                entry_dt = datetime.fromtimestamp(start / 1000.0)
+                if not tariff_window.is_sensor_active_at(self.energy_sensor, entry_dt):
+                    continue
+
             price = price_map.get(start)
             if price is None:
                 price = 0.0
@@ -556,7 +694,11 @@ class VariableComponent(EnergyContractComponent):
         timestamp: datetime,
         ha_connector: Any = None,
         price_providers: Optional[Dict[str, Any]] = None,
+        tariff_window: Optional['TariffWindow'] = None,
     ) -> float:
+        if tariff_window and not tariff_window.is_sensor_active_at(self.energy_sensor, timestamp):
+            return 0.0
+
         provider = self._get_price_provider(price_providers=price_providers)
         if not provider:
             return 0.0
@@ -614,7 +756,11 @@ class CapacityComponent(EnergyContractComponent):
         )
 
     def calculate_cost(
-        self, period_data: 'EnergyPeriodData', is_monthly: bool = True, ha_connector: Any = None
+        self,
+        period_data: 'EnergyPeriodData',
+        is_monthly: bool = True,
+        ha_connector: Any = None,
+        tariff_window: Optional['TariffWindow'] = None,
     ) -> Tuple[float, 'EnergyCostBreakdown']:
         max_power_kw = period_data.max_power_kw
         max_power_timestamp = period_data.max_power_timestamp
@@ -666,6 +812,7 @@ class CapacityComponent(EnergyContractComponent):
         timestamp: datetime,
         ha_connector: Any = None,
         price_providers: Optional[Dict[str, Any]] = None,
+        tariff_window: Optional['TariffWindow'] = None,
     ) -> float:
         return 0.0
 
@@ -701,6 +848,7 @@ class PercentageComponent(EnergyContractComponent):
         period_data: 'EnergyPeriodData',
         is_monthly: bool = True,
         ha_connector: Any = None,
+        tariff_window: Optional['TariffWindow'] = None,
         component_breakdowns: List['EnergyCostBreakdown'] = None,
     ) -> Tuple[float, 'EnergyCostBreakdown']:
         base_sum = 0.0
@@ -730,6 +878,7 @@ class PercentageComponent(EnergyContractComponent):
         timestamp: datetime,
         ha_connector: Any = None,
         price_providers: Optional[Dict[str, Any]] = None,
+        tariff_window: Optional['TariffWindow'] = None,
     ) -> float:
         return 0.0
 
@@ -786,7 +935,11 @@ class EnergyContract:
         )
 
     def _calculate_cost(
-        self, period_data: 'EnergyPeriodData', is_monthly: bool, ha_connector: Any = None
+        self,
+        period_data: 'EnergyPeriodData',
+        is_monthly: bool,
+        ha_connector: Any = None,
+        tariff_window: Optional['TariffWindow'] = None,
     ) -> Tuple[float, List['EnergyCostBreakdown']]:
         total_cost = 0.0
         breakdowns: List['EnergyCostBreakdown'] = [None] * len(self.components)
@@ -794,7 +947,7 @@ class EnergyContract:
         for i, component in enumerate(self.components):
             if not isinstance(component, PercentageComponent):
                 cost, breakdown = component.calculate_cost(
-                    period_data, is_monthly=is_monthly, ha_connector=ha_connector
+                    period_data, is_monthly=is_monthly, ha_connector=ha_connector, tariff_window=tariff_window
                 )
                 total_cost += cost
                 breakdowns[i] = breakdown
@@ -802,7 +955,11 @@ class EnergyContract:
         for i, component in enumerate(self.components):
             if isinstance(component, PercentageComponent):
                 cost, breakdown = component.calculate_cost(
-                    period_data, is_monthly=is_monthly, ha_connector=ha_connector, component_breakdowns=breakdowns
+                    period_data,
+                    is_monthly=is_monthly,
+                    ha_connector=ha_connector,
+                    tariff_window=tariff_window,
+                    component_breakdowns=breakdowns,
                 )
                 total_cost += cost
                 breakdowns[i] = breakdown
@@ -810,11 +967,21 @@ class EnergyContract:
         return total_cost, breakdowns
 
     def calculate_monthly_cost(
-        self, period_data: 'EnergyPeriodData', ha_connector: Any = None
+        self,
+        period_data: 'EnergyPeriodData',
+        ha_connector: Any = None,
+        tariff_window: Optional['TariffWindow'] = None,
     ) -> Tuple[float, List['EnergyCostBreakdown']]:
-        return self._calculate_cost(period_data, is_monthly=True, ha_connector=ha_connector)
+        return self._calculate_cost(
+            period_data, is_monthly=True, ha_connector=ha_connector, tariff_window=tariff_window
+        )
 
     def calculate_yearly_cost(
-        self, period_data: 'EnergyPeriodData', ha_connector: Any = None
+        self,
+        period_data: 'EnergyPeriodData',
+        ha_connector: Any = None,
+        tariff_window: Optional['TariffWindow'] = None,
     ) -> Tuple[float, List['EnergyCostBreakdown']]:
-        return self._calculate_cost(period_data, is_monthly=False, ha_connector=ha_connector)
+        return self._calculate_cost(
+            period_data, is_monthly=False, ha_connector=ha_connector, tariff_window=tariff_window
+        )

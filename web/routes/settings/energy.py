@@ -18,14 +18,15 @@ from web.forms.price_provider import (
 )
 from web.model.data.data_connector import DataConnector, EnergyContractManager, EnergyFeedManager, PriceProviderManager
 from web.model.energy.models import (
+    CONTRACT_ENERGY_SENSOR_CHOICES,
     ENERGY_SENSOR_DEFAULT,
-    ENERGY_SENSOR_OPTION_LABELS,
     CapacityComponent,
     ConstantComponent,
     EnergyContract,
     EnergyFeed,
     FixedComponent,
     PercentageComponent,
+    TariffWindow,
     VariableComponent,
 )
 from web.model.energy.price_provider import (
@@ -49,6 +50,13 @@ def energy_feed():
     form = EnergyFeedConfigForm()
 
     if form.validate_on_submit():
+        tariff_window = TariffWindow(
+            high_tariff_start=form.high_tariff_start.data or '07:00',
+            high_tariff_end=form.high_tariff_end.data or '22:00',
+            exclude_weekend=form.exclude_weekend.data,
+            single_tariff=form.single_tariff.data,
+        )
+
         feed = EnergyFeed(
             total_consumption_high_tariff=form.total_consumption_high_tariff.data or '',
             total_consumption_low_tariff=form.total_consumption_low_tariff.data or '',
@@ -60,6 +68,7 @@ def energy_feed():
             actual_usage=form.actual_usage.data or '',
             total_usage_high_tariff=form.total_usage_high_tariff.data or '',
             total_usage_low_tariff=form.total_usage_low_tariff.data or '',
+            tariff_window=tariff_window,
             power_unit='kW',
             energy_unit='kWh',
         )
@@ -80,6 +89,10 @@ def energy_feed():
         form.actual_usage.data = energy_feed.actual_usage
         form.total_usage_high_tariff.data = energy_feed.total_usage_high_tariff
         form.total_usage_low_tariff.data = energy_feed.total_usage_low_tariff
+        form.high_tariff_start.data = energy_feed.tariff_window.high_tariff_start
+        form.high_tariff_end.data = energy_feed.tariff_window.high_tariff_end
+        form.exclude_weekend.data = energy_feed.tariff_window.exclude_weekend
+        form.single_tariff.data = energy_feed.tariff_window.single_tariff
 
     return render_template('settings/energy/energy-feed.html', form=form, feed=energy_feed)
 
@@ -99,7 +112,7 @@ def energy_contract():
     energy_feed = energy_feed_manager.get_config()
 
     available_sensors = [
-        {'id': sensor_key, 'label': sensor_label} for sensor_key, sensor_label in ENERGY_SENSOR_OPTION_LABELS.items()
+        {'id': sensor_id, 'label': sensor_label} for sensor_id, sensor_label in CONTRACT_ENERGY_SENSOR_CHOICES
     ]
     default_energy_sensor = ENERGY_SENSOR_DEFAULT
 

@@ -3,6 +3,7 @@ from typing import Any, Dict, List
 
 from web.model.data.data_connector import DataConnector, PriceProviderManager
 from web.model.data.ha_connector import HAConnector
+from web.model.energy.models import TariffWindow
 
 
 class CostForecastService:
@@ -35,6 +36,9 @@ class CostForecastService:
         if not contract or not contract.components:
             return []
 
+        energy_feed = data_connector.get_energy_feed()
+        tariff_window = energy_feed.tariff_window if energy_feed else TariffWindow()
+
         price_provider_manager = PriceProviderManager(data_connector)
         price_providers = self._build_price_provider_map(contract.components, price_provider_manager)
         timestamps = self._build_timestamps(time_step, horizon_hours)
@@ -51,6 +55,7 @@ class CostForecastService:
                         timestamp,
                         ha_connector=ha_connector,
                         price_providers=price_providers,
+                        tariff_window=tariff_window,
                     )
                     for component in components
                 ),

@@ -160,6 +160,8 @@ Builds PV power forecast from the `estimated_actual_production_offset_day` solar
 
 Builds `load_cost_forecast` (buy price) and `prod_price_forecast` (sell price) from the energy contract configuration. Each contract component now exposes `calculate_kwh_unit_price()`, so the forecast service simply sums the direct per-kWh contributions for each timestep. Constant, percentage, and capacity components intentionally contribute `0` to these EMHASS runtime arrays.
 
+The service loads the `TariffWindow` from the Energy Feed configuration and passes it to each component's `calculate_kwh_unit_price()`. Components linked to tariff-specific sensors (e.g., `consumption_high_tariff`) return `0.0` when the tariff window is not active at the forecast timestamp, ensuring the price forecast accurately reflects the high/low tariff schedule.
+
 ### OptimizationScheduler
 
 Orchestrates the full optimization run:

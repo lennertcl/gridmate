@@ -109,10 +109,10 @@ function renderEnergyPlanChart(result) {
 
     if (result.load_cost_forecast && result.load_cost_forecast.length > 0) {
         datasets.push({
-            label: 'Import Price',
+            label: 'Consumption Price',
             data: result.load_cost_forecast.map(function(p) { return p.value; }),
             type: 'line',
-            borderColor: '#00d97e',
+            borderColor: '#ff8c42',
             backgroundColor: 'rgba(0, 217, 126, 0.12)',
             yAxisID: 'y_price',
             fill: false,
@@ -127,12 +127,11 @@ function renderEnergyPlanChart(result) {
 
     if (result.prod_price_forecast && result.prod_price_forecast.length > 0) {
         datasets.push({
-            label: 'Export Price',
+            label: 'Injection Price',
             data: result.prod_price_forecast.map(function(p) { return p.value; }),
             type: 'line',
-            borderColor: '#ff8c42',
+            borderColor: '#00d97e',
             backgroundColor: 'rgba(255, 140, 66, 0.12)',
-            borderDash: [6, 4],
             yAxisID: 'y_price',
             fill: false,
             tension: 0,
