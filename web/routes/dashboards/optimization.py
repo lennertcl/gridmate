@@ -5,8 +5,11 @@ from flask import Blueprint, jsonify, render_template, request
 from web.model.data.data_connector import DataConnector
 from web.model.data.ha_connector import HAConnector
 from web.model.optimization.emhass_connector import EmhassConnector, resolve_emhass_url
+from web.model.optimization.ha_automation_manager import HAAutomationManager
+from web.model.optimization.manual_schedule_service import ManualScheduleError, ManualScheduleService
 from web.model.optimization.models import DeviceDayEntry, DeviceSchedule, ScheduleEntry
 from web.model.optimization.optimization_manager import OptimizationManager
+from web.model.optimization.result_store import OptimizationResultStore
 from web.model.optimization.scheduler import (
     OptimizationDisabledError,
     OptimizationScheduler,
@@ -19,6 +22,7 @@ dashboard_optimization_bp = Blueprint('dashboard_optimization', __name__)
 
 data_connector = DataConnector()
 optimization_manager = OptimizationManager(data_connector)
+result_store = OptimizationResultStore()
 
 
 @dashboard_optimization_bp.route('/dashboard/optimization')
@@ -33,6 +37,12 @@ def optimization_dashboard():
     logger.debug('Latest optimization result: %s', result)
 
     device_names = {d.device_id: d.name for d in devices}
+    device_editor_info = {
+        device.device_id: {
+            'is_automatable': 'automatable_device' in device.get_all_type_ids(),
+        }
+        for device in devices
+    }
     device_defaults = {
         load.device_id: {
             'earliest_start_time': load.earliest_start_time,
@@ -59,6 +69,7 @@ def optimization_dashboard():
         deferrable_loads=deferrable_loads,
         managed_battery=managed_battery,
         device_names=device_names,
+        device_editor_info=device_editor_info,
         device_defaults=device_defaults,
         battery_schedule=battery_schedule,
         today_schedule=today_schedule,
@@ -171,6 +182,55 @@ def clear_device_override(device_id):
     optimization_manager.save_config(config)
 
     return jsonify({'success': True, 'device_id': device_id})
+
+
+@dashboard_optimization_bp.route('/api/optimization/device/<device_id>/schedule-window', methods=['POST'])
+def save_device_schedule_window(device_id):
+    config = optimization_manager.get_config()
+    data = request.get_json(silent=True) or {}
+    action = data.get('action', 'save')
+    start_time = data.get('start_time', '')
+    end_time = data.get('end_time', '')
+    window_index = data.get('window_index')
+
+    schedule_service = ManualScheduleService(data_connector, result_store=result_store)
+
+    try:
+        if action == 'delete':
+            if window_index is None:
+                return jsonify({'error': 'Scheduled window index is required for delete'}), 400
+            result = schedule_service.delete_device_window(device_id, int(window_index))
+        elif window_index is None:
+            result = schedule_service.add_device_window(device_id, start_time, end_time)
+        else:
+            result = schedule_service.update_device_window(device_id, int(window_index), start_time, end_time)
+
+        if config.actuation_mode == 'automatic':
+            ha_connector = HAConnector()
+            automation_manager = HAAutomationManager(ha_connector, data_connector)
+            automation_manager.sync_device_automations(result)
+        else:
+            logger.info('Skipping Home Assistant automation sync for manual schedule edit in manual mode')
+
+        if not result_store.update_latest_result(result):
+            logger.error('Failed to persist edited schedule for device %s', device_id)
+            return jsonify({'error': 'Failed to persist the updated schedule'}), 500
+
+        updated_schedule = result.device_schedules.get(device_id)
+        updated_forecast = result.device_power_forecasts.get(device_id, [])
+        return jsonify(
+            {
+                'success': True,
+                'device_id': device_id,
+                'schedule': updated_schedule.to_dict() if updated_schedule else None,
+                'device_power_forecast': [point.to_dict() for point in updated_forecast],
+            }
+        )
+    except ManualScheduleError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error('Failed to save manual schedule window for %s: %s', device_id, e)
+        return jsonify({'error': str(e)}), 500
 
 
 def _build_battery_schedule(result):

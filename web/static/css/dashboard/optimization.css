@@ -149,6 +149,25 @@
     color: var(--color-text-light);
 }
 
+.schedule-block-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.8rem;
+    height: 1.8rem;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-text-light);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.schedule-block-action:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
 .schedule-block-charge {
     background: rgba(0, 217, 126, 0.1);
     border-color: rgba(0, 217, 126, 0.3);
@@ -177,6 +196,18 @@
     font-size: 0.8rem;
     color: var(--color-text-light);
     font-style: italic;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.schedule-add-btn {
+    font-style: normal;
+}
+
+.device-schedule-actions {
+    margin-top: 0.5rem;
 }
 
 .device-schedule-info {
@@ -239,6 +270,22 @@
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
+}
+
+.device-schedule-editor {
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+}
+
+.schedule-editor-note {
+    width: 100%;
+}
+
+.schedule-delete-btn {
+    display: inline-flex;
 }
 
 .managed-device-footer {

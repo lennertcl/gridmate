@@ -145,6 +145,7 @@
             {% set day_entry = today_schedule.get(load.device_id) %}
             {% set override = overrides.get(load.device_id) %}
             {% set defaults = device_defaults.get(load.device_id, {}) %}
+            {% set editor_info = device_editor_info.get(load.device_id, {}) %}
             <div class="managed-device-card" data-device-id="{{ load.device_id }}">
                 <div class="managed-device-header">
                     <div class="managed-device-info">
@@ -228,12 +229,51 @@
                     </button>
                 </div>
 
+                <div class="device-schedule-editor" id="schedule-editor-{{ load.device_id }}" style="display: none;">
+                    <div class="cycle-editor">
+                        <input type="hidden" class="schedule-window-index" data-device="{{ load.device_id }}">
+                        {% if config.actuation_mode == 'manual' %}
+                        <div class="info-banner info-banner-warning schedule-editor-note">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Changing the timeblock has no effect in manual mode, change your settings <a href="{{ url_for('settings_optimization.optimization_settings') }}">here</a>.</span>
+                        </div>
+                        {% endif %}
+                        {% if not editor_info.get('is_automatable') %}
+                        <div class="info-banner info-banner-warning schedule-editor-note">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Changing the timeblock has no effect for device without type "Automatable Device", change your settings <a href="{{ url_for('settings_device.edit_device', device_id=load.device_id) }}">here</a>.</span>
+                        </div>
+                        {% endif %}
+                        <div class="cycle-editor-field">
+                            <label>Start</label>
+                            <input type="time" class="form-control schedule-edit-start" data-device="{{ load.device_id }}">
+                        </div>
+                        <div class="cycle-editor-field">
+                            <label>End</label>
+                            <input type="time" class="form-control schedule-edit-end" data-device="{{ load.device_id }}">
+                        </div>
+                        <div class="cycle-editor-actions">
+                            <button class="btn btn-primary btn-sm" type="button" onclick="saveDeviceScheduleWindow('{{ load.device_id }}')">Save Window</button>
+                            <button class="btn btn-danger btn-sm schedule-delete-btn" type="button" onclick="deleteDeviceScheduleWindow('{{ load.device_id }}')" style="display: none;">Delete Window</button>
+                            <button class="btn btn-secondary btn-sm" type="button" onclick="closeScheduleEditor('{{ load.device_id }}')">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+
                 {% if schedule and schedule.schedule_entries %}
                 <div class="device-schedule-blocks">
                     {% for entry in schedule.schedule_entries %}
                     <div class="schedule-block {% if entry.is_active %}active{% endif %}">
                         <span class="schedule-block-time">{{ entry.start_time.strftime('%H:%M') if entry.start_time.strftime is defined else entry.start_time }} - {{ entry.end_time.strftime('%H:%M') if entry.end_time.strftime is defined else entry.end_time }}</span>
                         <span class="schedule-block-power">{{ "%.0f" | format(entry.power_w) }} W</span>
+                        <button
+                            class="schedule-block-action"
+                            type="button"
+                            data-start="{{ entry.start_time.strftime('%H:%M') if entry.start_time.strftime is defined else entry.start_time }}"
+                            data-end="{{ entry.end_time.strftime('%H:%M') if entry.end_time.strftime is defined else entry.end_time }}"
+                            onclick="openScheduleEditor('{{ load.device_id }}', {{ loop.index0 }}, this)">
+                            <i class="fas fa-pencil-alt"></i>
+                        </button>
                     </div>
                     {% endfor %}
                 </div>
@@ -242,6 +282,12 @@
                     <span>No scheduled windows in current plan</span>
                 </div>
                 {% endif %}
+
+                <div class="device-schedule-actions">
+                    <button class="btn-text schedule-add-btn" type="button" onclick="openScheduleEditor('{{ load.device_id }}', null)">
+                        <i class="fas fa-plus"></i> Add Window
+                    </button>
+                </div>
             </div>
             {% endfor %}
         </div>

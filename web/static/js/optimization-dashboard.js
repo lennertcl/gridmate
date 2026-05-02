@@ -541,3 +541,139 @@ function clearDeviceOverride(deviceId) {
         alert('Failed to clear override: ' + err.message);
     });
 }
+
+function getScheduleInputStepSeconds() {
+    if (OPTIMIZATION_RESULT && OPTIMIZATION_RESULT.time_step_minutes) {
+        return OPTIMIZATION_RESULT.time_step_minutes * 60;
+    }
+
+    return 1800;
+}
+
+function openScheduleEditor(deviceId, windowIndex, trigger) {
+    var card = document.querySelector('[data-device-id="' + deviceId + '"]');
+    if (!card) return;
+
+    var editor = document.getElementById('schedule-editor-' + deviceId);
+    var deleteButton = card.querySelector('.schedule-delete-btn');
+    var indexInput = card.querySelector('.schedule-window-index');
+    var startInput = card.querySelector('.schedule-edit-start');
+    var endInput = card.querySelector('.schedule-edit-end');
+    var defaults = (typeof DEVICE_DEFAULTS !== 'undefined' && DEVICE_DEFAULTS[deviceId]) || {};
+
+    if (!editor || !indexInput || !startInput || !endInput) return;
+
+    startInput.step = getScheduleInputStepSeconds();
+    endInput.step = getScheduleInputStepSeconds();
+
+    if (windowIndex === null || typeof windowIndex === 'undefined') {
+        indexInput.value = '';
+        startInput.value = defaults.earliest_start_time || '';
+        endInput.value = defaults.latest_end_time || '';
+        if (deleteButton) {
+            deleteButton.style.display = 'none';
+        }
+    } else {
+        indexInput.value = String(windowIndex);
+        startInput.value = trigger ? (trigger.getAttribute('data-start') || '') : '';
+        endInput.value = trigger ? (trigger.getAttribute('data-end') || '') : '';
+        if (deleteButton) {
+            deleteButton.style.display = 'inline-flex';
+        }
+    }
+
+    editor.style.display = 'block';
+    startInput.focus();
+}
+
+function closeScheduleEditor(deviceId) {
+    var editor = document.getElementById('schedule-editor-' + deviceId);
+    var card = document.querySelector('[data-device-id="' + deviceId + '"]');
+    var deleteButton = card ? card.querySelector('.schedule-delete-btn') : null;
+    if (!editor) return;
+    editor.style.display = 'none';
+    if (deleteButton) {
+        deleteButton.style.display = 'none';
+    }
+}
+
+function saveDeviceScheduleWindow(deviceId) {
+    var card = document.querySelector('[data-device-id="' + deviceId + '"]');
+    if (!card) return;
+
+    var indexInput = card.querySelector('.schedule-window-index');
+    var startInput = card.querySelector('.schedule-edit-start');
+    var endInput = card.querySelector('.schedule-edit-end');
+    var body = {
+        start_time: startInput ? startInput.value : '',
+        end_time: endInput ? endInput.value : '',
+    };
+
+    if (!body.start_time || !body.end_time) {
+        alert('Start and end time are required');
+        return;
+    }
+
+    if (indexInput && indexInput.value !== '') {
+        body.window_index = parseInt(indexInput.value, 10);
+    }
+
+    fetch(baseUrl('/api/optimization/device/' + deviceId + '/schedule-window'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    })
+    .then(function(response) {
+        return response.json().then(function(data) {
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to update scheduled window');
+            }
+            return data;
+        });
+    })
+    .then(function(data) {
+        if (data.success) {
+            window.location.reload();
+        }
+    })
+    .catch(function(err) {
+        alert('Failed to save scheduled window: ' + err.message);
+    });
+}
+
+function deleteDeviceScheduleWindow(deviceId) {
+    var card = document.querySelector('[data-device-id="' + deviceId + '"]');
+    if (!card) return;
+
+    var indexInput = card.querySelector('.schedule-window-index');
+    var windowIndex = indexInput && indexInput.value !== '' ? parseInt(indexInput.value, 10) : NaN;
+
+    if (!Number.isInteger(windowIndex)) {
+        return;
+    }
+
+    fetch(baseUrl('/api/optimization/device/' + deviceId + '/schedule-window'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'delete',
+            window_index: windowIndex,
+        }),
+    })
+    .then(function(response) {
+        return response.json().then(function(data) {
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to delete scheduled window');
+            }
+            return data;
+        });
+    })
+    .then(function(data) {
+        if (data.success) {
+            window.location.reload();
+        }
+    })
+    .catch(function(err) {
+        alert('Failed to delete scheduled window: ' + err.message);
+    });
+}

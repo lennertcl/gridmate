@@ -16,6 +16,7 @@ When no optimization results are available, the dashboard shows an empty state p
 - [optimization_manager.py](../../../web/model/optimization/optimization_manager.py) — Manager for config, deferrable loads, and EMHASS config sync
 - [emhass_connector.py](../../../web/model/optimization/emhass_connector.py) — EMHASS API connector: config sync, runtime param building, optimization execution
 - [scheduler.py](../../../web/model/optimization/scheduler.py) — Orchestrates optimization runs, battery SOC reading, actuation, notifications
+- [manual_schedule_service.py](../../../web/model/optimization/manual_schedule_service.py) — Validates and applies manual schedule window edits against the saved optimization horizon
 - [solar_forecast.py](../../../web/model/optimization/solar_forecast.py) — Builds PV power forecast from solar estimation sensors
 - [cost_forecast.py](../../../web/model/optimization/cost_forecast.py) — Builds load cost and production price forecasts from energy contract
 - [result_store.py](../../../web/model/optimization/result_store.py) — Result persistence layer
@@ -98,6 +99,7 @@ The `opt_enabled` flag on the `home_battery` device type controls whether the ba
 | GET | /api/optimization/status | optimization_status | Current optimization status JSON |
 | GET | /api/optimization/schedule | optimization_schedule | Latest optimization result JSON |
 | POST | /api/optimization/run | run_optimization | Trigger manual optimization run |
+| POST | /api/optimization/device/<device_id>/schedule-window | save_device_schedule_window | Add or edit a planned device window in the latest saved optimization result; HA automations are only republished when actuation mode is automatic |
 | POST | /api/optimization/device/<device_id>/override | set_device_override | Set next-optimization override for a device (num_cycles, hours_between_runs, earliest_start_time, latest_end_time) |
 | POST | /api/optimization/device/<device_id>/clear-override | clear_device_override | Remove next-optimization override for a device |
 
@@ -169,6 +171,17 @@ Orchestrates the full optimization run:
 - Stores results via OptimizationResultStore
 - Handles post-optimization actuation (automatic device control via HA automations)
 
+### ManualScheduleService
+
+Applies post-optimization schedule edits from the dashboard without introducing a second schedule store.
+
+Key responsibilities:
+- Loads the latest saved OptimizationResult and the existing horizon timestamps used by the chart
+- Validates that edited times stay within the saved optimization horizon and align to the configured optimization timestep
+- Rebuilds the edited device's `DeviceSchedule.total_energy_kwh` and `device_power_forecasts` series so the dashboard chips and Chart.js stack stay in sync
+- Preserves the device's configured or previously optimized operating power when only the window timing changes
+- Rejects overlapping windows for the same device
+
 ## Frontend
 
 ### Dashboard Layout
@@ -176,7 +189,7 @@ Orchestrates the full optimization run:
 1. **Status Bar** — Full-width card showing EMHASS connection, actuation mode, last run time, and run status
 2. **Energy Plan Chart** — Stacked bar chart (Chart.js) showing the 24-hour plan after the last day-ahead optimization. Base load shown as grey bars, each managed device stacked on top in distinct colors showing their scheduled power during planned windows. Device datasets are sorted by device creation order using the timestamp suffix embedded in each `device_id`, with name and `device_id` used as deterministic fallbacks. Each device then takes a palette slot derived from its `device_id`, and if that color is already in use for the same chart GridMate walks forward to the next free palette color. This keeps the result deterministic across browsers and devices without storing any client-side state. Battery charge/discharge power is stacked in teal (`#0f766e`) — positive values (charging) stack with consumption, negative values (discharging) extend below zero. Solar production is overlaid as a stepped yellow line. The same chart also overlays the import and export energy price series that were passed to EMHASS, rendered as stepped lines on a secondary right-hand y-axis in €/kWh. The chart uses a stepped (non-smooth) style reflecting the discrete time steps (typically 30 minutes). Rendered at a larger height (420px) for clarity
 3. **Summary Cards** — 5-column grid with estimated cost, production, grid import, grid export, and self-consumption metrics
-4. **Managed Devices** — Section showing all devices that participate in optimization. The home battery (if configured) appears first with a battery icon, showing capacity (kWh) and charge/discharge power limits (kW). Deferrable load devices follow, each showing nominal power, operating duration, time window constraints, today's schedule summary (number of cycles and gap), next planned optimization time, and override status. All devices have a per-device optimization enable toggle. Below each deferrable load device, the scheduled time blocks are shown as labeled chips with start/end times and operating power. An "Override next optimization" button expands inline controls using the same cycle editor UI as the settings page (cycles, hours between runs, earliest start, latest end) for temporarily changing the device config for the next optimization run only. Setting cycles to 0 disables the device for the next run. Active overrides are shown as a yellow banner with clear button. Overrides are automatically cleared after the next optimization run. When no devices are configured for optimization, a generic empty state message is shown
+4. **Managed Devices** — Section showing all devices that participate in optimization. The home battery (if configured) appears first with a battery icon, showing capacity (kWh) and charge/discharge power limits (kW). Deferrable load devices follow, each showing nominal power, operating duration, time window constraints, today's schedule summary (number of cycles and gap), next planned optimization time, and override status. All devices have a per-device optimization enable toggle. Below each deferrable load device, the scheduled time blocks are shown as labeled chips with start/end times and operating power. Each chip now has a pencil action that opens an inline start/end editor for that specific block. The add-window action is always visible, even when a device already has planned windows. When editing an existing block, the editor also exposes a delete action. The editor surfaces warning banners when a change will not propagate to Home Assistant because optimization actuation mode is manual or because the device is missing the `automatable_device` type. An "Override next optimization" button expands inline controls using the same cycle editor UI as the settings page (cycles, hours between runs, earliest start, latest end) for temporarily changing the device config for the next optimization run only. Setting cycles to 0 disables the device for the next run. Active overrides are shown as a yellow banner with clear button. Overrides are automatically cleared after the next optimization run. When no devices are configured for optimization, a generic empty state message is shown
 
 ### JavaScript (optimization-dashboard.js)
 
@@ -187,3 +200,17 @@ Orchestrates the full optimization run:
 - `toggleOverrideControls()` — Shows/hides inline override editor for a device
 - `setDeviceOverride()` — POSTs override (num_cycles, hours_between_runs, earliest_start_time, latest_end_time) to the API, reloads on success
 - `clearDeviceOverride()` — POSTs to clear-override API endpoint, reloads on success
+- `openScheduleEditor()` / `closeScheduleEditor()` — Opens the inline block editor for an existing device window or for a new window via the always-visible add action
+- `saveDeviceScheduleWindow()` — POSTs a schedule-window add or edit to the API, then reloads so the chart and chips rehydrate from the updated saved result
+- `deleteDeviceScheduleWindow()` — POSTs a delete action for the currently edited window, then reloads after the saved plan is updated
+
+### Manual Schedule Editing Flow
+
+When POST `/api/optimization/device/<device_id>/schedule-window` is called:
+
+1. **Load current result** — ManualScheduleService loads the latest saved OptimizationResult from `optimization_latest.json`
+2. **Validate the edit** — The requested start and end must fit inside the saved horizon and align to the optimization timestep (for example 30 minutes)
+3. **Rewrite device data** — The service adds, updates, or deletes the selected device window, recalculates `total_energy_kwh`, and regenerates that device's chart series in `device_power_forecasts`
+4. **Republish automations** — When actuation mode is `automatic`, HAAutomationManager rebuilds the Home Assistant device automations from the edited OptimizationResult so the active plan in HA matches the dashboard
+5. **Manual mode behavior** — When actuation mode is `manual`, GridMate persists the edited dashboard schedule only for local display and does not write or update any Home Assistant automations
+6. **Persist edited result** — ResultStore overwrites the latest result file and replaces the matching history entry for that timestamp when present

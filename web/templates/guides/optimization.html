@@ -99,7 +99,7 @@
                     <dt>Power Control Entity</dt>
                     <dd>For devices with <em>Constant Power</em> disabled (variable power optimization) or home batteries, set the <em>Power Control Entity</em> to a <code>number.*</code> HA entity. The automation will call <code>number.set_value</code> to set the target power level for each schedule block. This is useful for EV chargers, batteries, or other devices where the power level can be adjusted.</dd>
                     <dt>Cleanup</dt>
-                    <dd>All <code>[gridmate]</code> device automations are deleted and recreated fresh on every optimization run, ensuring the schedule is always up to date. Disabling optimization removes all <code>[gridmate]</code> automations. Switching to manual mode removes device automations but keeps the daily trigger.</dd>
+                    <dd>All <code>[gridmate]</code> device automations are deleted and recreated fresh on every optimization run, ensuring the schedule is always up to date. Disabling optimization removes all <code>[gridmate]</code> automations. Switching to manual mode prevents automatic post-run actuation, and manual schedule edits from the optimization dashboard also stay local to GridMate instead of publishing new HA automations.</dd>
                 </dl>
             </div>
         </div>
@@ -138,6 +138,8 @@
                     <dd>Click <em>Override next optimization</em> on a device card to temporarily change its settings for the next optimization run only. You can change the number of cycles (set to 0 to disable), adjust the gap between runs, and override the earliest start and latest end times. The same editor fields are used as on the settings page. The override is shown as a yellow banner on the device card.</dd>
                     <dt>Clearing Overrides</dt>
                     <dd>Click the &times; button on the override banner to remove it. Overrides are also cleared automatically after the next optimization run completes.</dd>
+                    <dt>Editing Planned Windows</dt>
+                    <dd>Each planned device window on the optimization dashboard has a pencil button. Click it to change the start and end time for that window. The add button is always available, so you can create another planned window even when one already exists. When editing an existing window, the same inline editor also exposes a delete button. GridMate validates the edit against the optimization timestep and updates the saved plan used by the chart. Home Assistant automations are only updated when actuation mode is <strong>Automatic</strong> and the device has the <em>Automatable Device</em> type; otherwise the editor shows a warning and the change remains dashboard-only.</dd>
                 </dl>
             </div>
         </div>
