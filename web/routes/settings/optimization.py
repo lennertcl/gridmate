@@ -82,6 +82,7 @@ def optimization_settings():
         form.actuation_mode.data = config.actuation_mode
         form.load_power_source_type.data = config.load_power_config.source_type
         form.load_power_sensor_entity.data = config.load_power_config.sensor_entity
+        form.weekly_schedule_data.data = json.dumps(config.weekly_schedule.to_dict())
 
     deferrable_loads = optimization_manager.get_deferrable_loads()
     devices = data_connector.get_devices()
@@ -99,7 +100,6 @@ def optimization_settings():
         form=form,
         config=config,
         schedule_blocks_json=json.dumps([b.to_dict() for b in config.load_power_config.schedule_blocks]),
-        weekly_schedule_json=json.dumps(config.weekly_schedule.to_dict()),
         deferrable_loads=deferrable_loads,
         device_names=device_names,
         device_defaults_json=json.dumps(device_defaults),

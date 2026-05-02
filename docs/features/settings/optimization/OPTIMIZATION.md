@@ -207,6 +207,7 @@ Generates `load_cost_forecast` and `prod_price_forecast` arrays from the user's 
 | weekly_schedule_data | HiddenField | Weekly schedule JSON blob |
 
 Schedule blocks are submitted as JSON via a hidden `load_power_schedule_blocks` field. The weekly schedule is submitted as JSON via `weekly_schedule_data`.
+On GET requests, the route hydrates `weekly_schedule_data` from the stored optimization config so the settings page and submitted POST payload stay aligned with the persisted weekly schedule.
 
 ## Routes
 
@@ -227,7 +228,7 @@ Card-based layout with sections:
 1. **EMHASS Connection** — URL, actuation mode, day-ahead schedule time, enable toggle, connection status indicator with test button
 2. **Grid & Load** — Max import/export power, load power source type (sensor vs schedule), sensor entity field or schedule block editor
 3. **EMHASS Configuration** — Fetch button to view the live config currently active in EMHASS
-4. **Weekly Device Schedule** — Compact table (rows = deferrable devices, columns = Mon–Sun). Each row includes an opt_enabled toggle for the master switch. Each cell shows a badge with the cycle count (green if enabled and > 0, gray otherwise). Clicking a cell opens an inline editor with Cycles, Hours between runs, Earliest start, and Latest end fields plus an Apply button. "Apply to all days" button copies Monday's config to all other days. Devices with `opt_enabled=False` are grayed out
+4. **Weekly Device Schedule** — Compact table (rows = deferrable devices, columns = Mon–Sun). Each row includes an opt_enabled toggle for the master switch. Each cell shows a badge with the cycle count (green if enabled and > 0, gray otherwise). When no explicit weekly entry exists yet, enabled devices default to `1` and disabled devices default to `0`. Clicking a cell opens an inline editor with Cycles, Hours between runs, Earliest start, and Latest end fields plus an Apply button. "Apply to all days" button copies Monday's config to all other days. Devices with `opt_enabled=False` are grayed out
 5. **Save** — Saves settings and automatically pushes updated config to EMHASS
 
 ### JavaScript (optimization-settings.js)
@@ -238,7 +239,7 @@ Card-based layout with sections:
 - `addScheduleBlock()` / `renderScheduleBlock()` — Dynamically add/render schedule block rows with time inputs and power value
 - `updateScheduleBlocksHidden()` — Serializes current schedule blocks to the hidden JSON field
 - `fetchEmhassConfig()` — Fetches and displays the live EMHASS config from the API
-- `initWeeklySchedule()` — Loads weekly schedule from hidden JSON field, renders badges, attaches cell click handlers, apply-all buttons, and opt_enabled toggle handlers
+- `initWeeklySchedule()` — Loads weekly schedule from the hydrated hidden JSON field, renders badges, attaches cell click handlers, apply-all buttons, and opt_enabled toggle handlers
 - `toggleDeviceOpt()` — Toggles opt_enabled via API and updates row styling/badges
 - `openCellEditor()` / `closeEditor()` / `saveCellFromEditor()` — Inline editor for per-cell schedule configuration (cycles, hours between runs, earliest start, latest end); requires explicit Apply button click
 - `applyToAllDays()` — Copies Monday's config for a device to all other days

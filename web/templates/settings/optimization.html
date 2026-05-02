@@ -22,7 +22,7 @@
             <button type="button" class="btn btn-secondary btn-sm" id="btn-test-connection">Test Connection</button>
         </div>
         <form class="form-group" id="optimizationSettingsForm" method="POST" novalidate>
-            {{ form.hidden_tag() }}
+            {{ form.csrf_token }}
 
             <div class="form-row">
                 <div class="form-col">
@@ -196,7 +196,7 @@
                 </div>
             </div>
         </div>
-        <input type="hidden" name="weekly_schedule_data" id="weekly_schedule_data" value="{{ weekly_schedule_json }}">
+        {{ form.weekly_schedule_data(id='weekly_schedule_data') }}
     </section>
     {% endif %}
 
