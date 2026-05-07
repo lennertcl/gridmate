@@ -878,7 +878,7 @@ class OptimizationResultStore:
 **Storage strategy:**
 - Latest result: `data/optimization_latest.json` (separate from `settings.json` to avoid bloat)
 - Historical results: `data/optimization_history/` directory, one JSON file per day
-- Retention: keep only the last N days to manage disk usage
+- Retention: keep only the latest 7 daily files to manage disk usage
 
 ---
 
@@ -1164,7 +1164,7 @@ Stored separately to avoid bloating `settings.json`:
 - **File:** `data/optimization_latest.json`
 - **Content:** Serialised `OptimizationResult` with full timeseries data
 - **Updated:** After every successful optimisation run
-- **Size management:** Only the latest result in this file. Daily summaries logged to `data/optimization_history/` (one file per day, last N days retained).
+- **Size management:** Only the latest result in this file. Daily summaries logged to `data/optimization_history/` (one file per day, latest 7 daily files retained).
 
 ---
 

@@ -22,6 +22,7 @@ class OptimizationResultStore:
             history_entries = self._load_history_entries(result.timestamp)
             history_entries.append(result_dict)
             self._write_history_entries(result.timestamp, history_entries)
+            self.cleanup_history()
 
         except IOError as e:
             logger.error(f'Failed to save optimization result: {e}')
@@ -44,6 +45,7 @@ class OptimizationResultStore:
                 history_entries.append(result_dict)
 
             self._write_history_entries(result.timestamp, history_entries)
+            self.cleanup_history()
             return True
         except IOError as e:
             logger.error(f'Failed to update latest optimization result: {e}')
@@ -60,20 +62,17 @@ class OptimizationResultStore:
             logger.error(f'Failed to load latest optimization result: {e}')
             return None
 
-    def cleanup_history(self, retention_days: int = 7) -> None:
+    def cleanup_history(self, max_history_files: int = 7) -> None:
         if not self.history_dir.exists():
             return
-        from datetime import timedelta
 
-        cutoff_date = datetime.now() - timedelta(days=retention_days)
-        cutoff_str = cutoff_date.strftime('%Y-%m-%d')
+        history_files = sorted(self.history_dir.glob('*.json'))
 
-        for history_file in self.history_dir.glob('*.json'):
-            if history_file.stem < cutoff_str:
-                try:
-                    history_file.unlink()
-                except IOError:
-                    pass
+        for history_file in history_files[:-max_history_files]:
+            try:
+                history_file.unlink()
+            except IOError:
+                pass
 
     def _write_latest_result(self, result_dict: dict) -> None:
         self.base_path.mkdir(parents=True, exist_ok=True)
